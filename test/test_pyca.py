@@ -1,3 +1,4 @@
+# coding=utf-8
 import sys
 import threading
 import pytest
@@ -246,3 +247,53 @@ def test_threads(server):
         x.start()
     for x in threads:
         x.join()
+
+
+@pytest.mark.timeout(10)
+def test_string_encoding(server):
+    pvname = 'PYCA:TEST:STRING'
+    value = '10 °C'
+
+    pv = setup_pv(pvname)
+    pv.put_data(value, 1.0)
+    pyca.flush_io()
+
+    pv.get_data(False, -1.0)
+    pyca.flush_io()
+    assert pv.getevt_cb.wait(timeout=1)
+    assert pv.data['value'] == value
+    pv.clear_channel()
+
+@pytest.mark.ioc
+@pytest.mark.timeout(10)
+def test_unit_encoding(server):
+    pvname = 'PYCA:TEST:LONG'
+    unit = '°C'
+
+    pv = setup_pv(pvname + '.EGU')
+    pv.put_data(unit, 1.0)
+    pv.clear_channel()
+
+    pv = setup_pv(pvname)
+    pv.get_data(True, -1.0)
+    pyca.flush_io()
+    assert pv.getevt_cb.wait(timeout=1)
+    assert pv.data['units'] == unit
+    pv.clear_channel()
+
+@pytest.mark.ioc
+@pytest.mark.timeout(10)
+def test_enum_encoding(server):
+    pvname = 'PYCA:TEST:ENUM'
+    enum = '°C'
+
+    pv = setup_pv(pvname + '.ZRST')
+    pv.put_data(enum, 1.0)
+    pv.clear_channel()
+
+    pv = setup_pv(pvname)
+    pv.get_enum_strings(-1.0)
+    pyca.flush_io()
+    assert pv.getevt_cb.wait(timeout=1)
+    assert pv.data['enum_set'] == (enum, 'B')
+    pv.clear_channel()
