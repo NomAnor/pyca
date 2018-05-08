@@ -402,6 +402,20 @@ extern "C" {
         pv->putevt_cb = NULL;
         pv->simulated = 0;
         pv->use_numpy = numpy_arrays;
+#ifdef IS_PY3K
+        // by default encode str to bytes and decode bytes to str using DEFAULT_ENCODING
+        PyObject* dict = PyModule_GetDict(pyca_module);
+        PyObject* encoding = PyDict_GetItemString(dict, "DEFAULT_ENCODING");
+        if (encoding) {
+            pv->encoding = encoding;
+        } else {
+            pv->encoding = Py_False;
+        }
+#else
+        // by default don't encode/decode use str not unicode
+        pv->encoding = Py_False;
+#endif
+        Py_INCREF(pv->encoding);
         pv->cid = 0;
         pv->getbuffer = 0;
         pv->getbufsiz = 0;
@@ -422,6 +436,7 @@ extern "C" {
         Py_XDECREF(pv->rwaccess_cb);
         Py_XDECREF(pv->getevt_cb);
         Py_XDECREF(pv->putevt_cb);
+        Py_XDECREF(pv->encoding);
         if (pv->cid) {
             ca_clear_channel(pv->cid);
             pv->cid = 0;
@@ -486,6 +501,7 @@ extern "C" {
         {"putevt_cb",   T_OBJECT_EX, offsetof(capv, putevt_cb),   0, "putevt_cb"},
         {"simulated",   T_BOOL,      offsetof(capv, simulated),   0, "simulated"},
         {"use_numpy",   T_BOOL,      offsetof(capv, use_numpy),   0, "use_numpy"},
+        {"encoding",    T_OBJECT_EX, offsetof(capv, encoding),    0, "encoding"},
         {NULL}
     };
 
@@ -714,12 +730,12 @@ extern "C" {
         }
 
 #ifdef IS_PY3K
-        PyObject* module = PyModule_Create(&moduledef);
+        pyca_module = PyModule_Create(&moduledef);
 #else
-        PyObject* module = Py_InitModule("pyca", pyca_methods);
+        pyca_module = Py_InitModule("pyca", pyca_methods);
 #endif
 
-        if (module == NULL) {
+        if (pyca_module == NULL) {
 #ifdef IS_PY3K
             return NULL;
 #else
@@ -730,53 +746,57 @@ extern "C" {
         PyObject* v = NULL;
 
         // Export selected channel access constants
-        if (PyModule_AddIntConstant(module, "DBE_VALUE", DBE_VALUE) != 0) goto error;
-        if (PyModule_AddIntConstant(module, "DBE_LOG", DBE_LOG) != 0) goto error;
-        if (PyModule_AddIntConstant(module, "DBE_ALARM", DBE_ALARM) != 0) goto error;
+        if (PyModule_AddIntConstant(pyca_module, "DBE_VALUE", DBE_VALUE) != 0) goto error;
+        if (PyModule_AddIntConstant(pyca_module, "DBE_LOG", DBE_LOG) != 0) goto error;
+        if (PyModule_AddIntConstant(pyca_module, "DBE_ALARM", DBE_ALARM) != 0) goto error;
         v = PyTuple_New(ALARM_NSEV);
         if (!v) goto error;
         for (unsigned i = 0; i < ALARM_NSEV; i++) {
-            if (PyModule_AddIntConstant(module, AlarmSeverityStrings[i], i) != 0) {
+            if (PyModule_AddIntConstant(pyca_module, AlarmSeverityStrings[i], i) != 0) {
                 Py_DECREF(v);
                 goto error;
             }
             PyTuple_SET_ITEM(v, i, PyString_FromString(AlarmSeverityStrings[i]));
         }
-        if (PyModule_AddObject(module, "severity", v) != 0) goto error;
+        if (PyModule_AddObject(pyca_module, "severity", v) != 0) goto error;
         v = PyTuple_New(ALARM_NSTATUS);
         if (!v) goto error;
         for (unsigned i = 0; i < ALARM_NSTATUS; i++) {
-            if (PyModule_AddIntConstant(module, AlarmConditionStrings[i], i) != 0) {
+            if (PyModule_AddIntConstant(pyca_module, AlarmConditionStrings[i], i) != 0) {
                 Py_DECREF(v);
                 goto error;
             }
             PyTuple_SET_ITEM(v, i, PyString_FromString(AlarmConditionStrings[i]));
         }
-        if (PyModule_AddObject(module, "alarm", v) != 0) goto error;
+        if (PyModule_AddObject(pyca_module, "alarm", v) != 0) goto error;
         // secs between Jan 1st 1970 and Jan 1st 1990
-        if (PyModule_AddIntConstant(module, "epoch", 7305 * 86400) != 0) goto error;
+        if (PyModule_AddIntConstant(pyca_module, "epoch", 7305 * 86400) != 0) goto error;
+
+        if (PyModule_AddStringConstant(pyca_module, "DEFAULT_ENCODING", "utf-8") != 0) goto error;
 
         v = PyCapsule_New((void *)pyca_getevent_handler, "pyca.get_handler", NULL);
         if (!v) goto error;
-        if (PyModule_AddObject(module, "get_handler", v) != 0) goto error;
+        if (PyModule_AddObject(pyca_module, "get_handler", v) != 0) goto error;
         v = PyCapsule_New((void *)pyca_monitor_handler, "pyca.monitor_handler", NULL);
         if (!v) goto error;
-        if (PyModule_AddObject(module, "monitor_handler", v) != 0) goto error;
+        if (PyModule_AddObject(pyca_module, "monitor_handler", v) != 0) goto error;
 
-        // Add capv type to this module
+        // Add capv type to this pyca_module
         Py_INCREF(&capv_type);
-        if (PyModule_AddObject(module, "capv", (PyObject*)&capv_type) != 0) goto error;
+        if (PyModule_AddObject(pyca_module, "capv", (PyObject*)&capv_type) != 0) goto error;
 
-        // Add custom exceptions to this module
+        // Add custom exceptions to this pyca_module
         pyca_pyexc = PyErr_NewException("pyca.pyexc", NULL, NULL);
         if (!pyca_pyexc) goto error;
-        if (PyModule_AddObject(module, "pyexc", pyca_pyexc) != 0) goto error;
+        if (PyModule_AddObject(pyca_module, "pyexc", pyca_pyexc) != 0) goto error;
         pyca_caexc = PyErr_NewException("pyca.caexc", NULL, NULL);
         if (!pyca_caexc) goto error;
-        if (PyModule_AddObject(module, "caexc", pyca_caexc) != 0) goto error;
+        if (PyModule_AddObject(pyca_module, "caexc", pyca_caexc) != 0) goto error;
+
         // incref for the references held by our c code
         Py_INCREF(pyca_pyexc);
         Py_INCREF(pyca_caexc);
+        Py_INCREF(pyca_module);
 
         // libca creates non-python threads so we must ensure that python threading is initialized
         PyEval_InitThreads();
@@ -793,14 +813,16 @@ extern "C" {
             //Py_AtExit(ca_context_destroy);
         }
 #ifdef IS_PY3K
-        return module;
+        return pyca_module;
 #endif
 
 error:
 #ifdef IS_PY3K
-        Py_DECREF(module);
+        Py_DECREF(pyca_module);
+        pyca_module = NULL;
         return NULL;
 #else
+        pyca_module = NULL;
         return;
 #endif
     }

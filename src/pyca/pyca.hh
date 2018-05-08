@@ -13,6 +13,7 @@ struct capv {
     PyObject* putevt_cb;  // event callback
     char simulated;       // False if real PV, otherwise just simulated.
     char use_numpy;       // True to use numpy array instead of tuple
+    PyObject* encoding;   // encoding used for strings, units and enums strings
     chid cid;             // channel access ID
     char* getbuffer;      // buffer for received data
     unsigned getbufsiz;   // received data buffer size
@@ -28,6 +29,9 @@ struct capv {
 // Possible exceptions
 static PyObject* pyca_pyexc = NULL;
 static PyObject* pyca_caexc = NULL;
+
+// Module object
+static PyObject* pyca_module = NULL;
 
 // Exception macros
 #define pyca_raise_pyexc_int(function, reason, pv) { \

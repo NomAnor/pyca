@@ -65,6 +65,12 @@ class Pv(pyca.capv):
         will be a NumPy type. By default, the PV will use the current pyca
         setting that can be modified by using :func:`utils.set_numpy`
 
+    encoding : str, optional
+        Encoding used for string values, units and enum strings. If False no encoding/decoding is done.
+        In Python 2 str is used for raw bytes and unicode for strings. Defaults to False.
+        In Python 3 bytes is used for raw bytes and str for strings. Defaults to the encoding
+        in the module variable DEFAULT_ENCODING which is UTF-8.
+
 
     Attributes
     ----------
@@ -102,7 +108,7 @@ class Pv(pyca.capv):
         this list
     """
     def __init__(self, name, initialize=False, count=None,
-                 control=False, monitor=False, use_numpy=False,
+                 control=False, monitor=False, use_numpy=False, encoding=None,
                  **kw):
 
         pyca.capv.__init__(self, name)
@@ -134,6 +140,8 @@ class Pv(pyca.capv):
         self.control = control
         self.use_numpy = use_numpy
         self.do_initialize = initialize
+        if encoding:
+            self.encoding = encoding
 
         self.timestamps = []
         self.values = []

@@ -159,6 +159,10 @@ also be a module attribute, pyca.ECA_NORMAL, whose value can be used
 as an index into the tuples.  This is how you can compare various
 enumeration values.
 
+6.  pyca.DEFAULT_ENCODING
+
+    In Python 3 the default encoding used for strings, enum string and units.
+
 +-----------+
 | pyca.capv |
 +-----------+
