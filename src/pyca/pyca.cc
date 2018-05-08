@@ -810,6 +810,8 @@ extern "C" {
             }
             save_proc_context();
             // The following seems to cause a segfault at exit
+            // Python doc: no Python APIs should be called by func
+            // pyca_connection_handler calls Python API
             //Py_AtExit(ca_context_destroy);
         }
 #ifdef IS_PY3K
