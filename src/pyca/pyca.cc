@@ -61,24 +61,19 @@ extern "C" {
     static PyObject* subscribe_channel(PyObject* self, PyObject* args)
     {
         capv* pv = reinterpret_cast<capv*>(self);
-        PyObject* pyctrl;
-        PyObject* pymsk;
-        PyObject* pycnt = NULL;
+        unsigned long event_mask;
+        int control;
+        int count = -1;
 
-        if (!PyArg_ParseTuple(args, "OO|O:subscribe", &pymsk, &pyctrl, &pycnt) ||
-            !PyInt_Check(pymsk) ||
-            !PyBool_Check(pyctrl) ||
-            (pycnt && pycnt != Py_None && !PyInt_Check(pycnt))) {
-            pyca_raise_pyexc_pv("subscribe_channel", "error parsing arguments", pv);
-        }
+        if (!PyArg_ParseTuple(args, "ki|i:subscribe_channel", &event_mask, &control, &count)) return NULL;
 
         if (pv->simulated) {
-            if (PyObject_IsTrue(pyctrl)) {
+            if (control) {
                 pyca_raise_pyexc_pv("subscribe_channel", "Can't get control info on simulated PV", pv);
             }
             pv->count = 0;
-            if (pycnt && pycnt != Py_None) {
-                pv->count = PyInt_AsLong(pycnt);
+            if (count >= 0) {
+                pv->count = count;
             }
             pv->didmon = 1;
             Py_RETURN_NONE;
@@ -89,24 +84,20 @@ extern "C" {
             pyca_raise_pyexc_pv("subscribe_channel", "channel is null", pv);
         }
         pv->count = ca_element_count(cid);
-        if (pycnt && pycnt != Py_None) {
-            int limit = PyInt_AsLong(pycnt);
-            if (limit < pv->count) {
-                pv->count = limit;
-            }
+        if (count >= 0 && count < pv->count) {
+            pv->count = count;
         }
         short type = ca_field_type(cid);
         if (pv->count == 0 || type == TYPENOTCONN) {
             pyca_raise_caexc_pv("ca_field_type", ECA_DISCONNCHID, pv);
         }
-        short dbr_type = PyObject_IsTrue(pyctrl) ?
+        short dbr_type = control ?
             dbf_type_to_DBR_CTRL(type) : // Asks IOC to send status+time+limits+value
             dbf_type_to_DBR_TIME(type);  // Asks IOC to send status+time+value
         if (dbr_type_is_ENUM(dbr_type) && pv->string_enum) {
-            dbr_type = PyObject_IsTrue(pyctrl) ? DBR_CTRL_STRING : DBR_TIME_STRING;
+            dbr_type = control ? DBR_CTRL_STRING : DBR_TIME_STRING;
         }
 
-        unsigned long event_mask = PyInt_AsLong(pymsk);
         int result = ca_create_subscription(dbr_type,
                                             pv->count,
                                             cid,
@@ -155,10 +146,6 @@ extern "C" {
     {
         capv* pv = reinterpret_cast<capv*>(self);
 
-        if (!PyFloat_Check(pytmo)) {
-            pyca_raise_pyexc_pv("get_enum_strings", "error parsing arguments", pv);
-        }
-
         chid cid = pv->cid;
         if (!cid) {
             pyca_raise_pyexc_pv("get_enum_strings", "channel is null", pv);
@@ -174,6 +161,7 @@ extern "C" {
         }
         int result;
         double timeout = PyFloat_AsDouble(pytmo);
+        if (PyErr_Occurred()) return NULL;
         if (timeout < 0) {
             result = ca_array_get_callback(DBR_GR_ENUM,
                                            1,
@@ -205,26 +193,20 @@ extern "C" {
     static PyObject* get_data(PyObject* self, PyObject* args)
     {
         capv* pv = reinterpret_cast<capv*>(self);
-        PyObject* pyctrl;
-        PyObject* pytmo;
-        PyObject* pycnt = NULL;
+        int control;
+        double timeout;
+        int count = -1;
 
-        if (!PyArg_ParseTuple(args, "OO|O:get", &pyctrl, &pytmo, &pycnt) ||
-            !PyBool_Check(pyctrl) ||
-            !PyFloat_Check(pytmo) ||
-            (pycnt && pycnt != Py_None && !PyInt_Check(pycnt))) {
-            pyca_raise_pyexc_pv("get_data", "error parsing arguments", pv);
-        }
+        if (!PyArg_ParseTuple(args, "id|i:get_data", &control, &timeout, &count)) return NULL;
 
         if (pv->simulated) {
-            if (PyObject_IsTrue(pyctrl)) {
+            if (control) {
                 pyca_raise_pyexc_pv("get_data", "Can't get control info on simulated PV", pv);
             }
             pv->count = 0;
-            if (pycnt && pycnt != Py_None) {
-                pv->count = PyInt_AsLong(pycnt);
+            if (count >= 0) {
+                pv->count = count;
             }
-            double timeout = PyFloat_AsDouble(pytmo);
             if (timeout > 0) {
                 pyca_raise_pyexc_pv("get_data", "Can't specify a  get timeout on simulated PV", pv);
             }
@@ -237,23 +219,19 @@ extern "C" {
             pyca_raise_pyexc_pv("get_data", "channel is null", pv);
         }
         pv->count = ca_element_count(cid);
-        if (pycnt && pycnt != Py_None) {
-            int limit = PyInt_AsLong(pycnt);
-            if (limit < pv->count) {
-                pv->count = limit;
-            }
+        if (count >= 0 && count < pv->count) {
+            pv->count = count;
         }
         short type = ca_field_type(cid);
         if (pv->count == 0 || type == TYPENOTCONN) {
             pyca_raise_caexc_pv("ca_field_type", ECA_DISCONNCHID, pv);
         }
-        short dbr_type = PyObject_IsTrue(pyctrl) ?
+        short dbr_type = control ?
             dbf_type_to_DBR_CTRL(type) : // Asks IOC to send status+time+limits+value
             dbf_type_to_DBR_TIME(type);  // Asks IOC to send status+time+value
         if (dbr_type_is_ENUM(dbr_type) && pv->string_enum) {
-            dbr_type = PyObject_IsTrue(pyctrl) ? DBR_CTRL_STRING : DBR_TIME_STRING;
+            dbr_type = control ? DBR_CTRL_STRING : DBR_TIME_STRING;
         }
-        double timeout = PyFloat_AsDouble(pytmo);
         if (timeout < 0) {
             int result = ca_array_get_callback(dbr_type,
                                                pv->count,
@@ -292,11 +270,9 @@ extern "C" {
     {
         capv* pv = reinterpret_cast<capv*>(self);
         PyObject* pyval;
-        PyObject* pytmo;
-        if (!PyArg_ParseTuple(args, "OO:put", &pyval, &pytmo) ||
-            !PyFloat_Check(pytmo)) {
-            pyca_raise_pyexc_pv("put_data", "error parsing arguments", pv);
-        }
+        double timeout;
+
+        if (!PyArg_ParseTuple(args, "Od:put_data", &pyval, &timeout)) return NULL;
 
         chid cid = pv->cid;
         if (!cid) {
@@ -320,7 +296,6 @@ extern "C" {
         if (!buffer) {
             pyca_raise_pyexc_pv("put_data", "un-handled type", pv);
         }
-        double timeout = PyFloat_AsDouble(pytmo);
         if (timeout < 0) {
             int result = ca_array_put_callback(dbr_type,
                                                count,
@@ -401,9 +376,6 @@ extern "C" {
     {
         capv* pv = reinterpret_cast<capv*>(self);
 
-        if (!PyBool_Check(pyval)) {
-            pyca_raise_pyexc_pv("set_string_enum", "error parsing arguments", pv);
-        }
         pv->string_enum = PyObject_IsTrue(pyval);
         Py_RETURN_NONE;
     }
@@ -414,15 +386,9 @@ extern "C" {
     static int capv_init(PyObject* self, PyObject* args, PyObject* kwds)
     {
         capv* pv = reinterpret_cast<capv*>(self);
-        PyObject* name = NULL;
-        if (!PyArg_ParseTuple(args, "O:capv_init", &name) ||
-            !PyString_Check(name)) {
-            pyca_raise_pyexc_int("capv_init", "cannot get PV name", pv);
-        }
-        char const* c_name = PyString_AsString(name);
-        if (!c_name) {
-            return -1;
-        }
+        char const *c_name;
+        if (!PyArg_ParseTuple(args, "s:capv_init", &c_name)) return -1;
+
         pv->name = strdup(c_name);
         pv->processor = NULL;
         pv->connect_cb = NULL;
@@ -632,10 +598,8 @@ extern "C" {
     static PyObject* pend_io(PyObject*, PyObject* pytmo)
     {
         int result;
-        if (!PyFloat_Check(pytmo)) {
-            pyca_raise_pyexc("pend_io", "error parsing arguments");
-        }
         double timeout = PyFloat_AsDouble(pytmo);
+        if (PyErr_Occurred()) return NULL;
         Py_BEGIN_ALLOW_THREADS
             result = ca_pend_io(timeout);
         Py_END_ALLOW_THREADS
@@ -657,10 +621,8 @@ extern "C" {
     static PyObject* pend_event(PyObject*, PyObject* pytmo)
     {
         int result;
-        if (!PyFloat_Check(pytmo)) {
-            pyca_raise_pyexc("pend_event", "error parsing arguments");
-        }
         double timeout = PyFloat_AsDouble(pytmo);
+        if (PyErr_Occurred()) return NULL;
         Py_BEGIN_ALLOW_THREADS
             result = ca_pend_event(timeout);
         Py_END_ALLOW_THREADS
@@ -672,9 +634,6 @@ extern "C" {
 
     static PyObject* set_numpy(PyObject*, PyObject* np)
     {
-        if (!PyBool_Check(np)) {
-            pyca_raise_pyexc("use_numpy", "error parsing arguments");
-        }
         numpy_arrays = PyObject_IsTrue(np);
         Py_RETURN_NONE;
     }
