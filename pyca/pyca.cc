@@ -71,13 +71,13 @@ extern "C" {
         }
 
         if (pv->simulated != Py_None) {
-            if (pyctrl == Py_True) {
+            if (PyObject_IsTrue(pyctrl)) {
                 pyca_raise_pyexc_pv("subscribe_channel", "Can't get control info on simulated PV", pv);
             }
-            if (pycnt && pycnt != Py_None)
+            pv->count = 0;
+            if (pycnt && pycnt != Py_None) {
                 pv->count = PyInt_AsLong(pycnt);
-            else
-                pv->count = 0;
+            }
             pv->didmon = 1;
             Py_RETURN_NONE;
         }
@@ -89,18 +89,20 @@ extern "C" {
         pv->count = ca_element_count(cid);
         if (pycnt && pycnt != Py_None) {
             int limit = PyInt_AsLong(pycnt);
-            if (limit < pv->count)
+            if (limit < pv->count) {
                 pv->count = limit;
+            }
         }
         short type = ca_field_type(cid);
         if (pv->count == 0 || type == TYPENOTCONN) {
             pyca_raise_caexc_pv("ca_field_type", ECA_DISCONNCHID, pv);
         }
-        short dbr_type = (Py_True == pyctrl) ?
+        short dbr_type = PyObject_IsTrue(pyctrl) ?
             dbf_type_to_DBR_CTRL(type) : // Asks IOC to send status+time+limits+value
             dbf_type_to_DBR_TIME(type);  // Asks IOC to send status+time+value
-        if (dbr_type_is_ENUM(dbr_type) && pv->string_enum)
-            dbr_type = (Py_True == pyctrl) ? DBR_CTRL_STRING : DBR_TIME_STRING;
+        if (dbr_type_is_ENUM(dbr_type) && pv->string_enum) {
+            dbr_type = PyObject_IsTrue(pyctrl) ? DBR_CTRL_STRING : DBR_TIME_STRING;
+        }
 
         unsigned long event_mask = PyLong_AsLong(pymsk);
         int result = ca_create_subscription(dbr_type,
@@ -151,8 +153,7 @@ extern "C" {
     {
         capv* pv = reinterpret_cast<capv*>(self);
 
-        if (!PyFloat_Check(pytmo))
-        {
+        if (!PyFloat_Check(pytmo)) {
             pyca_raise_pyexc_pv("get_enum_strings", "error parsing arguments", pv);
         }
 
@@ -214,13 +215,13 @@ extern "C" {
         }
 
         if (pv->simulated != Py_None) {
-            if (pyctrl == Py_True) {
+            if (PyObject_IsTrue(pyctrl)) {
                 pyca_raise_pyexc_pv("get_data", "Can't get control info on simulated PV", pv);
             }
-            if (pycnt && pycnt != Py_None)
+            pv->count = 0;
+            if (pycnt && pycnt != Py_None) {
                 pv->count = PyInt_AsLong(pycnt);
-            else
-                pv->count = 0;
+            }
             double timeout = PyFloat_AsDouble(pytmo);
             if (timeout > 0) {
                 pyca_raise_pyexc_pv("get_data", "Can't specify a  get timeout on simulated PV", pv);
@@ -236,18 +237,20 @@ extern "C" {
         pv->count = ca_element_count(cid);
         if (pycnt && pycnt != Py_None) {
             int limit = PyInt_AsLong(pycnt);
-            if (limit < pv->count)
+            if (limit < pv->count) {
                 pv->count = limit;
+            }
         }
         short type = ca_field_type(cid);
         if (pv->count == 0 || type == TYPENOTCONN) {
             pyca_raise_caexc_pv("ca_field_type", ECA_DISCONNCHID, pv);
         }
-        short dbr_type = (Py_True == pyctrl) ?
+        short dbr_type = PyObject_IsTrue(pyctrl) ?
             dbf_type_to_DBR_CTRL(type) : // Asks IOC to send status+time+limits+value
             dbf_type_to_DBR_TIME(type);  // Asks IOC to send status+time+value
-        if (dbr_type_is_ENUM(dbr_type) && pv->string_enum)
-            dbr_type = (Py_True == pyctrl) ? DBR_CTRL_STRING : DBR_TIME_STRING;
+        if (dbr_type_is_ENUM(dbr_type) && pv->string_enum) {
+            dbr_type = PyObject_IsTrue(pyctrl) ? DBR_CTRL_STRING : DBR_TIME_STRING;
+        }
         double timeout = PyFloat_AsDouble(pytmo);
         if (timeout < 0) {
             int result = ca_array_get_callback(dbr_type,
@@ -305,8 +308,9 @@ extern "C" {
         if (count > 1) {
             if (PyTuple_Check(pyval)) {
                 int tcnt = PyTuple_GET_SIZE(pyval);
-                if (tcnt < count)
+                if (tcnt < count) {
                     count = tcnt;
+                }
             }
         }
         short dbr_type = dbf_type_to_DBR(type);
@@ -398,7 +402,7 @@ extern "C" {
         if (!PyBool_Check(pyval)) {
             pyca_raise_pyexc_pv("set_string_enum", "error parsing arguments", pv);
         }
-        pv->string_enum = (Py_True == pyval);
+        pv->string_enum = PyObject_IsTrue(pyval);
         Py_RETURN_NONE;
     }
 
@@ -413,19 +417,15 @@ extern "C" {
             pyca_raise_pyexc_int("capv_init", "cannot get PV name", pv);
         }
         Py_INCREF(pv->name);
-        pv->processor = 0;
-        pv->connect_cb = 0;
-        pv->monitor_cb = 0;
-        pv->rwaccess_cb = 0;
-        pv->getevt_cb = 0;
-        pv->putevt_cb = 0;
+        pv->processor = NULL;
+        pv->connect_cb = NULL;
+        pv->monitor_cb = NULL;
+        pv->rwaccess_cb = NULL;
+        pv->getevt_cb = NULL;
+        pv->putevt_cb = NULL;
         pv->simulated = Py_None;
         Py_INCREF(pv->simulated);
-        if (numpy_arrays) {
-            pv->use_numpy = Py_True;
-        } else {
-            pv->use_numpy = Py_False;
-        }
+        pv->use_numpy = numpy_arrays ? Py_True : Py_False;
         Py_INCREF(pv->use_numpy);
         pv->cid = 0;
         pv->getbuffer = 0;
@@ -463,7 +463,7 @@ extern "C" {
             pv->putbuffer = 0;
             pv->putbufsiz = 0;
         }
-        self->ob_type->tp_free(self);
+        Py_TYPE(self)->tp_free(self);
     }
 
     static PyObject* capv_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
@@ -483,85 +483,83 @@ extern "C" {
 
     // Register capv methods
     static PyMethodDef capv_methods[] = {
-        {"create_channel", create_channel, METH_NOARGS},
-        {"clear_channel", clear_channel, METH_NOARGS},
-        {"subscribe_channel", subscribe_channel, METH_VARARGS},
-        {"unsubscribe_channel", unsubscribe_channel, METH_NOARGS},
-        {"get_data", get_data, METH_VARARGS},
-        {"put_data", put_data, METH_VARARGS},
-        {"host", host, METH_NOARGS},
-        {"state", state, METH_NOARGS},
-        {"count", count, METH_NOARGS},
-        {"type", type, METH_NOARGS},
-        {"rwaccess", rwaccess, METH_NOARGS},
+        {"create_channel",              create_channel,              METH_NOARGS},
+        {"clear_channel",               clear_channel,               METH_NOARGS},
+        {"subscribe_channel",           subscribe_channel,           METH_VARARGS},
+        {"unsubscribe_channel",         unsubscribe_channel,         METH_NOARGS},
+        {"get_data",                    get_data,                    METH_VARARGS},
+        {"put_data",                    put_data,                    METH_VARARGS},
+        {"host",                        host,                        METH_NOARGS},
+        {"state",                       state,                       METH_NOARGS},
+        {"count",                       count,                       METH_NOARGS},
+        {"type",                        type,                        METH_NOARGS},
+        {"rwaccess",                    rwaccess,                    METH_NOARGS},
         {"replace_access_rights_event", replace_access_rights_event, METH_NOARGS},
-        {"set_string_enum", set_string_enum, METH_O},
-        {"is_string_enum", is_string_enum, METH_NOARGS},
-        {"get_enum_strings", get_enum_strings, METH_O},
-        {NULL,  NULL},
+        {"set_string_enum",             set_string_enum,             METH_O},
+        {"is_string_enum",              is_string_enum,              METH_NOARGS},
+        {"get_enum_strings",            get_enum_strings,            METH_O},
+        {NULL},
     };
 
     // Register capv members
     static PyMemberDef capv_members[] = {
-        {"name", T_OBJECT_EX, offsetof(capv, name), 0, "name"},
-        {"data", T_OBJECT_EX, offsetof(capv, data), 0, "data"},
-        {"processor", T_OBJECT_EX, offsetof(capv, processor), 0, "processor"},
-        {"connect_cb", T_OBJECT_EX, offsetof(capv, connect_cb), 0, "connect_cb"},
-        {"monitor_cb", T_OBJECT_EX, offsetof(capv, monitor_cb), 0, "monitor_cb"},
+        {"name",        T_OBJECT_EX, offsetof(capv, name),        0, "name"},
+        {"data",        T_OBJECT_EX, offsetof(capv, data),        0, "data"},
+        {"processor",   T_OBJECT_EX, offsetof(capv, processor),   0, "processor"},
+        {"connect_cb",  T_OBJECT_EX, offsetof(capv, connect_cb),  0, "connect_cb"},
+        {"monitor_cb",  T_OBJECT_EX, offsetof(capv, monitor_cb),  0, "monitor_cb"},
         {"rwaccess_cb", T_OBJECT_EX, offsetof(capv, rwaccess_cb), 0, "rwaccess_cb"},
-        {"getevt_cb", T_OBJECT_EX, offsetof(capv, getevt_cb), 0, "getevt_cb"},
-        {"putevt_cb", T_OBJECT_EX, offsetof(capv, putevt_cb), 0, "putevt_cb"},
-        {"simulated", T_OBJECT_EX, offsetof(capv, simulated), 0, "simulated"},
-        {"use_numpy", T_OBJECT_EX, offsetof(capv, use_numpy), 0, "use_numpy"},
+        {"getevt_cb",   T_OBJECT_EX, offsetof(capv, getevt_cb),   0, "getevt_cb"},
+        {"putevt_cb",   T_OBJECT_EX, offsetof(capv, putevt_cb),   0, "putevt_cb"},
+        {"simulated",   T_OBJECT_EX, offsetof(capv, simulated),   0, "simulated"},
+        {"use_numpy",   T_OBJECT_EX, offsetof(capv, use_numpy),   0, "use_numpy"},
         {NULL}
     };
 
     static PyTypeObject capv_type = {
-        PyObject_HEAD_INIT(0)
-#ifndef IS_PY3K
-        0,
-#endif
-        "pyca.capv",
-        sizeof(capv),
-        0,
-        capv_dealloc,                           /* tp_dealloc */
-        0,                                      /* tp_print */
-        0,                                      /* tp_getattr */
-        0,                                      /* tp_setattr */
-        0,                                      /* tp_compare */
-        0,                                      /* tp_repr */
-        0,                                      /* tp_as_number */
-        0,                                      /* tp_as_sequence */
-        0,                                      /* tp_as_mapping */
-        0,                                      /* tp_hash */
-        0,                                      /* tp_call */
-        0,                                      /* tp_str */
-        0,                                      /* tp_getattro */
-        0,                                      /* tp_setattro */
-        0,                                      /* tp_as_buffer */
-        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */
-        0,                                      /* tp_doc */
-        0,                                      /* tp_traverse */
-        0,                                      /* tp_clear */
-        0,                                      /* tp_richcompare */
-        0,                                      /* tp_weaklistoffset */
-        0,                                      /* tp_iter */
-        0,                                      /* tp_iternext */
-        capv_methods,                           /* tp_methods */
-        capv_members,                           /* tp_members */
-        0,                                      /* tp_getset */
-        0,                                      /* tp_base */
-        0,                                      /* tp_dict */
-        0,                                      /* tp_descr_get */
-        0,                                      /* tp_descr_set */
-        0,                                      /* tp_dictoffset */
-        capv_init,                              /* tp_init */
-        0,                                      /* tp_alloc */
-        capv_new,                               /* tp_new */
+        PyVarObject_HEAD_INIT(NULL, 0)
+        "pyca.capv",                               /* tp_name */
+        sizeof(capv),                              /* tp_basicsize */
+        0,                                         /* tp_itemsize */
+        capv_dealloc,                              /* tp_dealloc */
+        NULL,                                      /* tp_print */
+        NULL,                                      /* tp_getattr */
+        NULL,                                      /* tp_setattr */
+        NULL,                                      /* tp_as_async */
+        NULL,                                      /* tp_repr */
+        NULL,                                      /* tp_as_number */
+        NULL,                                      /* tp_as_sequence */
+        NULL,                                      /* tp_as_mapping */
+        NULL,                                      /* tp_hash */
+        NULL,                                      /* tp_call */
+        NULL,                                      /* tp_str */
+        NULL,                                      /* tp_getattro */
+        NULL,                                      /* tp_setattro */
+        NULL,                                      /* tp_as_buffer */
+        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,  /* tp_flags */
+        NULL,                                      /* tp_doc */
+        NULL,                                      /* tp_traverse */
+        NULL,                                      /* tp_clear */
+        NULL,                                      /* tp_richcompare */
+        0,                                         /* tp_weaklistoffset */
+        NULL,                                      /* tp_iter */
+        NULL,                                      /* tp_iternext */
+        capv_methods,                              /* tp_methods */
+        capv_members,                              /* tp_members */
+        NULL,                                      /* tp_getset */
+        NULL,                                      /* tp_base */
+        NULL,                                      /* tp_dict */
+        NULL,                                      /* tp_descr_get */
+        NULL,                                      /* tp_descr_set */
+        0,                                         /* tp_dictoffset */
+        capv_init,                                 /* tp_init */
+        NULL,                                      /* tp_alloc */
+        capv_new,                                  /* tp_new */
     };
 
     // Module functions
-    static PyObject* initialize(PyObject*, PyObject*) {
+    static PyObject* initialize(PyObject*, PyObject*)
+    {
         //     PyEval_InitThreads();
         //     int result = ca_context_create(ca_enable_preemptive_callback);
         //     if (result != ECA_NORMAL) {
@@ -571,7 +569,8 @@ extern "C" {
         Py_RETURN_NONE;
     }
 
-    static PyObject* finalize(PyObject*, PyObject*) {
+    static PyObject* finalize(PyObject*, PyObject*)
+    {
         //     ca_context_destroy();
         printf("warning: no need to invoke finalize with this version of pyca\n");
         Py_RETURN_NONE;
@@ -580,20 +579,24 @@ extern "C" {
     // Each process needs a unique context.
     static std::map<pid_t, ca_client_context*> ca_context_map;
 
-    static bool has_proc_context() {
+    static bool has_proc_context()
+    {
         return ca_context_map.count(::getpid()) == 1;
     }
 
-    static void save_proc_context() {
+    static void save_proc_context()
+    {
         ca_context_map[::getpid()] = ca_current_context();
     }
 
-    static ca_client_context* get_proc_context() {
+    static ca_client_context* get_proc_context()
+    {
         return ca_context_map[::getpid()];
     }
 
     // Each thread needs the same context as the process that spawned it
-    static PyObject* attach_context(PyObject* self, PyObject* args) {
+    static PyObject* attach_context(PyObject* self, PyObject* args)
+    {
         // only failure modes are if it's already attached or single threaded,
         // so no need to raise an exception
         if (ca_current_context() == NULL) {
@@ -608,7 +611,8 @@ extern "C" {
         Py_RETURN_NONE;
     }
 
-    static PyObject* new_context(PyObject*, PyObject*) {
+    static PyObject* new_context(PyObject*, PyObject*)
+    {
         // use to create context for multiprocessing module
         // if this process already has a context, skip
         if (!has_proc_context()) {
@@ -622,7 +626,8 @@ extern "C" {
         Py_RETURN_NONE;
     }
 
-    static PyObject* pend_io(PyObject*, PyObject* pytmo) {
+    static PyObject* pend_io(PyObject*, PyObject* pytmo)
+    {
         int result;
         if (!PyFloat_Check(pytmo)) {
             pyca_raise_pyexc("pend_io", "error parsing arguments");
@@ -637,7 +642,8 @@ extern "C" {
         Py_RETURN_NONE;
     }
 
-    static PyObject* flush_io(PyObject*, PyObject*) {
+    static PyObject* flush_io(PyObject*, PyObject*)
+    {
         int result = ca_flush_io();
         if (result != ECA_NORMAL) {
             pyca_raise_caexc("ca_flush_io", result);
@@ -645,7 +651,8 @@ extern "C" {
         Py_RETURN_NONE;
     }
 
-    static PyObject* pend_event(PyObject*, PyObject* pytmo) {
+    static PyObject* pend_event(PyObject*, PyObject* pytmo)
+    {
         int result;
         if (!PyFloat_Check(pytmo)) {
             pyca_raise_pyexc("pend_event", "error parsing arguments");
@@ -660,7 +667,8 @@ extern "C" {
         Py_RETURN_NONE;
     }
 
-    static PyObject* set_numpy(PyObject*, PyObject* np) {
+    static PyObject* set_numpy(PyObject*, PyObject* np)
+    {
         if (!PyBool_Check(np)) {
             pyca_raise_pyexc("use_numpy", "error parsing arguments");
         }
@@ -671,14 +679,14 @@ extern "C" {
     // Register module methods
     static PyMethodDef pyca_methods[] = {
         {"attach_context", attach_context, METH_NOARGS},
-        {"new_context", new_context, METH_NOARGS},
-        {"initialize", initialize, METH_NOARGS},
-        {"finalize", finalize, METH_NOARGS},
-        {"pend_io", pend_io, METH_O},
-        {"flush_io", flush_io, METH_NOARGS},
-        {"pend_event", pend_event, METH_O},
-        {"set_numpy", set_numpy, METH_O},
-        {NULL, NULL}
+        {"new_context",    new_context,    METH_NOARGS},
+        {"initialize",     initialize,     METH_NOARGS},
+        {"finalize",       finalize,       METH_NOARGS},
+        {"pend_io",        pend_io,        METH_O},
+        {"flush_io",       flush_io,       METH_NOARGS},
+        {"pend_event",     pend_event,     METH_O},
+        {"set_numpy",      set_numpy,      METH_O},
+        {NULL}
     };
 
     static const char* AlarmSeverityStrings[ALARM_NSEV] = {
@@ -716,11 +724,7 @@ extern "C" {
         "pyca",
         NULL,
         -1,
-        pyca_methods,
-        NULL,
-        NULL,
-        NULL,
-        NULL
+        pyca_methods
     };
 #endif
 
@@ -749,13 +753,13 @@ extern "C" {
         PyModule_AddIntConstant(module, "DBE_LOG", DBE_LOG);
         PyModule_AddIntConstant(module, "DBE_ALARM", DBE_ALARM);
         PyObject* s = PyTuple_New(ALARM_NSEV);
-        for (unsigned i=0; i<ALARM_NSEV; i++) {
+        for (unsigned i = 0; i < ALARM_NSEV; i++) {
             PyModule_AddIntConstant(module, AlarmSeverityStrings[i], i);
             PyTuple_SET_ITEM(s, i, PyString_FromString(AlarmSeverityStrings[i]));
         }
         PyModule_AddObject(module, "severity", s);
         PyObject* a = PyTuple_New(ALARM_NSTATUS);
-        for (unsigned i=0; i<ALARM_NSTATUS; i++) {
+        for (unsigned i = 0; i < ALARM_NSTATUS; i++) {
             PyModule_AddIntConstant(module, AlarmConditionStrings[i], i);
             PyTuple_SET_ITEM(a, i, PyString_FromString(AlarmConditionStrings[i]));
         }
@@ -794,11 +798,10 @@ extern "C" {
                 fprintf(stderr,
                         "*** initpyca: ca_context_create failed with status %d\n",
                         result);
-            } else {
-                save_proc_context();
-                // The following seems to cause a segfault at exit
-                // Py_AtExit(ca_context_destroy);
             }
+            save_proc_context();
+            // The following seems to cause a segfault at exit
+            //Py_AtExit(ca_context_destroy);
         }
 #ifdef IS_PY3K
         return module;

@@ -26,27 +26,24 @@ static char *PyString_AsString(PyObject *o)
             result = strdup(result);
             Py_DECREF(temp_bytes);
             return result;
-        } else {
-            return NULL;
         }
-    } else
         return NULL;
+    }
+    return NULL;
 }
 
 static int PyString_Size(PyObject *o)
 {
-    int result;
     if (PyUnicode_Check(o)) {
         PyObject *temp_bytes = PyUnicode_AsEncodedString(o, "ASCII", "strict");
         if (temp_bytes != NULL) {
-            result = PyBytes_GET_SIZE(temp_bytes);
+            int result = PyBytes_GET_SIZE(temp_bytes);
             Py_DECREF(temp_bytes);
             return result;
-        } else {
-            return 0;
         }
-    } else
         return 0;
+    }
+    return 0;
 }
 #else
 #define DECLARE_INIT(name)  PyMODINIT_FUNC init##name(void)

@@ -3,13 +3,10 @@
 // Utility function to pack eventual arguments for callback
 PyObject* pyca_new_cbtuple(PyObject* arg)
 {
-    PyObject* pytup;
-    if (arg) {
-        pytup = PyTuple_New(1);
-        PyTuple_SET_ITEM(pytup, 0, arg);
-    } else {
-        pytup = PyTuple_New(0);
-    }
+    if (!arg) return PyTuple_New(0);
+
+    PyObject* pytup = PyTuple_New(1);
+    PyTuple_SET_ITEM(pytup, 0, arg);
     return pytup;
 }
 

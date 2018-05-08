@@ -4,10 +4,11 @@
 static inline void _pyca_put(PyObject* pyvalue, dbr_string_t* buf)
 {
     char *result = PyString_AsString(pyvalue);
-    if (result)
+    if (result) {
         memcpy(buf, result, sizeof(dbr_string_t));
-    else
+    } else {
         (*buf)[0] = 0;
+    }
 }
 
 static inline void _pyca_put(PyObject* pyvalue, dbr_enum_t* buf)
@@ -76,18 +77,14 @@ void _pyca_put_value(capv* pv, PyObject* pyvalue, T** buf, long count)
             _pyca_put(pyvalue, buffer);
         }
     } else {
-//        Py_ssize_t len = PyTuple_Size(pyvalue);
-//        if (len != count) {
-//            pyca_raise_pyexc_pv("put_data", "value doesn't match pv length", pv);
-//        }
         if (PyTuple_Check(pyvalue)) {
-            for (long i=0; i<count; i++) {
+            for (long i = 0; i < count; i++) {
                 PyObject* pyval = PyTuple_GetItem(pyvalue, i);
                 _pyca_put(pyval, buffer+i);
             }
         } else if (PyArray_Check(pyvalue)) {
             bool py_type = PyArray_IsPythonScalar(pyvalue);
-            for (long i=0; i<count; i++) {
+            for (long i = 0; i < count; i++) {
                 void* npdata = PyArray_GETPTR1(pyvalue, i);
                 if (py_type) {
                     PyObject* pyval = PyArray_GETITEM(pyvalue, npdata);

@@ -1,5 +1,15 @@
 #include "p3compat.h"
 
+// Utility function which decreases refcnt after adding item to dict
+static inline int _pyca_setitem(PyObject* dict, const char* key, PyObject* val)
+{
+    if (!val) return 0;
+
+    int result = PyDict_SetItemString(dict, key, val);
+    Py_DECREF(val); // Above function increases refcnt for item
+    return result;
+}
+
 // Channel access GET template functions
 static inline PyObject* _pyca_get(const dbr_string_t value)
 {
@@ -111,7 +121,7 @@ PyObject* _pyca_get_value(capv* pv, const T* dbrv, long count)
                 return nparray;
             } else {
                 PyObject* pytup = PyTuple_New(count);
-                for (long i=0; i<count; i++) {
+                for (long i = 0; i < count; i++) {
                     // Following function steals reference, no DECREF needed for each item
                     PyTuple_SetItem(pytup, i, _pyca_get(*(&(dbrv->value)+i)));
                 }
@@ -127,9 +137,9 @@ PyObject* _pyca_get_value(capv* pv, const T* dbrv, long count)
             void* descr = PyCObject_GetDesc(pv->processor);
 #endif
             process(&(dbrv->value), count, sizeof(dbrv->value), descr);
-            return NULL;
         }
     }
+    return NULL;
 }
 
 // Copy channel access status objects into python
@@ -208,7 +218,7 @@ void _pyca_get_gr_enum(capv* pv, const struct dbr_gr_enum* dbrv, long count)
 {
     PyObject* pydata = pv->data;
     PyObject* enstrs = PyTuple_New(dbrv->no_str);
-    for (int i=0; i < dbrv->no_str; i++) {
+    for (int i = 0; i < dbrv->no_str; i++) {
         // TODO:  This is no bueno. We need a new accessor above for
         //        char arrays...
         PyTuple_SET_ITEM(enstrs, i, _pyca_get(dbrv->strs[i]));

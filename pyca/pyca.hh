@@ -26,8 +26,8 @@ struct capv {
 };
 
 // Possible exceptions
-static PyObject* pyca_pyexc = 0;
-static PyObject* pyca_caexc = 0;
+static PyObject* pyca_pyexc = NULL;
+static PyObject* pyca_caexc = NULL;
 
 // Exception macros
 #define pyca_raise_pyexc_int(function, reason, pv) { \
@@ -65,14 +65,3 @@ static PyObject* pyca_caexc = 0;
 // PyDict_SetItemString():   +1
 // PyDict_GetItemString():   0  (item is borrowed)
 // PyObject_GetAttrString(): +1 (new reference)
-
-// Utility function which decreases refcnt after adding item to dict
-static inline int _pyca_setitem(PyObject* dict, const char* key, PyObject* val)
-{
-    if (val) {
-        int result = PyDict_SetItemString(dict, key, val);
-        Py_DECREF(val); // Above function increases refcnt for item
-       return result;
-    }
-    return 0;
-}
