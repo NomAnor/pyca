@@ -129,11 +129,12 @@ PyObject* _pyca_get_value(capv* pv, const T* dbrv, long count)
                 npy_intp dims[1] = {count};
                 int typenum = _numpy_array_type(&(dbrv->value));
 
-                PyObject* nparray = PyArray_EMPTY(1, dims, typenum, 0);
-                if (!nparray) return NULL;
+                PyObject* ndarray = PyArray_SimpleNew(1, dims, typenum);
+                if (!ndarray) return NULL;
 
-                memcpy(PyArray_DATA(nparray), &(dbrv->value), count*sizeof(dbrv->value));
-                return nparray;
+                void* data = PyArray_DATA(reinterpret_cast<PyArrayObject*>(ndarray));
+                memcpy(data, &(dbrv->value), count*sizeof(dbrv->value));
+                return ndarray;
             } else {
                 PyObject* pylist = PyList_New(count);
                 if (!pylist) return NULL;

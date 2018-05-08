@@ -68,15 +68,6 @@ static inline int _pyca_put(PyObject* pyvalue, dbr_double_t* buf)
     return 0;
 }
 
-// If using correct numpy type, there is nothing special to do.
-// Note we still risk corrupt data if we mismatch numpy data types, but this
-// should never happen unless the python user is malicious.
-template<class T> static inline
-int _pyca_put_np(void* npdata, T* buf)
-{
-    memcpy(buf, npdata, sizeof(T));
-    return 0;
-}
 
 // Copy python objects into channel access void* buffer
 // Return the buffer on success or NULL on failure
@@ -101,18 +92,13 @@ void* _pyca_put_value(capv* pv, PyObject* pyvalue, long count)
                 if (_pyca_put(pyval, buffer+i) != 0) return NULL;
             }
         } else if (PyArray_Check(pyvalue)) {
-            bool py_type = PyArray_IsPythonScalar(pyvalue);
-            for (long i = 0; i < count; i++) {
-                void* npdata = PyArray_GETPTR1(pyvalue, i);
+            int typenum = _numpy_array_type((const T*)NULL);
+            PyObject* ndarray = PyArray_FROMANY(pyvalue, typenum, 1, 1, NPY_ARRAY_CARRAY);
+            if (!ndarray) return NULL;
 
-                if (py_type) {
-                    PyObject* pyval = PyArray_GETITEM(pyvalue, npdata);
-
-                    if (_pyca_put(pyval, buffer+i) != 0) return NULL;
-                } else {
-                    if (_pyca_put_np(npdata, buffer+i) != 0) return NULL;
-                }
-            }
+            const void* data = PyArray_DATA(reinterpret_cast<PyArrayObject*>(ndarray));
+            memcpy(buffer, data, count*sizeof(T));
+            Py_DECREF(ndarray);
         }
     }
     return buffer;

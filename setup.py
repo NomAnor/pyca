@@ -44,6 +44,7 @@ pyca = Extension(
     ],
     library_dirs=[epics_lib],
     runtime_library_dirs=[epics_lib],
+    define_macros=[('NPY_NO_DEPRECATED_API', 'NPY_1_8_API_VERSION')],
     libraries=['Com', 'ca']
 )
 
