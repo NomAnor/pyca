@@ -1,10 +1,16 @@
 #include "p3compat.h"
+#include <iostream>
 
 // Channel access PUT template functions
 // These return 0 on success or -1 on failure
 static inline int _pyca_put(PyObject* pyvalue, dbr_string_t* buf)
 {
+#ifdef IS_PY3K
+    char *result = PyBytes_AsString(pyvalue);
+#else
     char *result = PyString_AsString(pyvalue);
+#endif
+
     if (!result) {
         (*buf)[0] = 0;
         return -1;
@@ -104,6 +110,22 @@ void* _pyca_put_value(capv* pv, PyObject* pyvalue, long count)
     return buffer;
 }
 
+// Return new reference on success or NULL on failure
+static PyObject* _pyca_encode_string(capv* pv, PyObject* str)
+{
+   if (!str) return NULL;
+
+    if (PyObject_Not(pv->encoding)) {
+        Py_INCREF(str);
+        return str;
+    }
+
+    char const *codec = PyString_AsString(pv->encoding);
+    if (!codec) return NULL;
+
+    return PyUnicode_AsEncodedString(str, codec, NULL);
+}
+
 // Return the buffer on success or NULL on failure
 static const void* _pyca_put_buffer(capv* pv,
                                     PyObject* pyvalue,
@@ -113,7 +135,11 @@ static const void* _pyca_put_buffer(capv* pv,
     switch (dbr_type) {
     case DBR_ENUM:
         {
+#ifdef IS_PY3K
+            if (PyBytes_Check(pyvalue) || PyString_Check(pyvalue)) {
+#else
             if (PyString_Check(pyvalue)) {
+#endif
                 dbr_type = DBR_STRING;
                 // no break: pass into string block, below
                 // Note: We don't check if the caller passed
@@ -124,7 +150,13 @@ static const void* _pyca_put_buffer(capv* pv,
             }
         }
     case DBR_STRING:
-        return _pyca_put_value<dbr_string_t>(pv, pyvalue, count);
+        {
+            PyObject* bytes = _pyca_encode_string(pv, pyvalue);
+            if (!bytes) return NULL;
+            void* res = _pyca_put_value<dbr_string_t>(pv, bytes, count);
+            Py_DECREF(bytes);
+            return res;
+        }
     case DBR_CHAR:
         return _pyca_put_value<dbr_char_t>(pv, pyvalue, count);
     case DBR_SHORT:

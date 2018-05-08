@@ -1,3 +1,4 @@
+#include <type_traits>
 #include "p3compat.h"
 
 // Utility function which steals the reference to val and adds it to dict
@@ -23,7 +24,11 @@ static inline int _pyca_setitem(PyObject* dict, const char* key, PyObject* val)
 // These return new references or NULL on failure.
 static inline PyObject* _pyca_get(const dbr_string_t value)
 {
+#ifdef IS_PY3K
+    return PyBytes_FromString(value);
+#else
     return PyString_FromString(value);
+#endif
 }
 
 static inline PyObject* _pyca_get(const dbr_enum_t value)
@@ -168,6 +173,37 @@ PyObject* _pyca_get_value(capv* pv, const T* dbrv, long count)
     Py_RETURN_NONE;
 }
 
+// Return new reference on success or NULL on failure
+static PyObject* _pyca_decode_bytes(capv* pv, PyObject* bytes)
+{
+    if (!bytes) return NULL;
+
+    if (PyObject_Not(pv->encoding)) {
+        Py_INCREF(bytes);
+        return bytes;
+    }
+
+    char const *codec = PyString_AsString(pv->encoding);
+    if (!codec) return NULL;
+
+    Py_ssize_t size;
+    char *str;
+    if (PyBytes_AsStringAndSize(bytes, &str, &size) != 0) return NULL;
+
+    return PyUnicode_Decode(str, size, codec, NULL);
+}
+
+// Return 0 on success or -1 on failure
+static int _pyca_decode_item(capv* pv, char const* item)
+{
+    PyObject* pydata = pv->data;
+
+    PyObject* value = PyDict_GetItemString(pydata, item);
+    if (!value) return -1;
+
+    return _pyca_setitem(pydata, item, _pyca_decode_bytes(pv, value));
+}
+
 // Copy channel access status objects into python
 // Return 0 on success or -1 on failure
 template<class T> static inline
@@ -178,6 +214,9 @@ int _pyca_get_sts(capv* pv, const T* dbrv, long count)
     if (_pyca_setitem(pydata, "severity", _pyca_get(dbrv->severity))        != 0) return -1;
     if (_pyca_setitem(pydata, "value",    _pyca_get_value(pv, dbrv, count)) != 0) return -1;
 
+    if (std::is_same<decltype(dbrv->value), dbr_string_t>::value) {
+        if (_pyca_decode_item(pv, "value") != 0) return -1;
+    }
     return 0;
 }
 
@@ -193,6 +232,9 @@ int _pyca_get_time(capv* pv, const T* dbrv, long count)
     if (_pyca_setitem(pydata, "nsec",     _pyca_get(dbrv->stamp.nsec))         != 0) return -1;
     if (_pyca_setitem(pydata, "value",    _pyca_get_value(pv, dbrv, count))    != 0) return -1;
 
+    if (std::is_same<decltype(dbrv->value), dbr_string_t>::value) {
+        if (_pyca_decode_item(pv, "value") != 0) return -1;
+    }
     return 0;
 }
 
@@ -215,6 +257,7 @@ int _pyca_get_ctrl_long(capv* pv, const T* dbrv, long count)
     if (_pyca_setitem(pydata, "ctrl_hlim",    _pyca_get(dbrv->upper_ctrl_limit))    != 0) return -1;
     if (_pyca_setitem(pydata, "value",        _pyca_get_value(pv, dbrv, count))     != 0) return -1;
 
+    if (_pyca_decode_item(pv, "units") != 0) return -1;
     return 0;
 }
 
@@ -250,6 +293,7 @@ int _pyca_get_ctrl_double(capv* pv, const T* dbrv, long count)
     if (_pyca_setitem(pydata, "ctrl_hlim",    _pyca_get(dbrv->upper_ctrl_limit))    != 0) return -1;
     if (_pyca_setitem(pydata, "value",        _pyca_get_value(pv, dbrv, count))     != 0) return -1;
 
+    if (_pyca_decode_item(pv, "units") != 0) return -1;
     return 0;
 }
 
@@ -265,7 +309,14 @@ int _pyca_get_gr_enum(capv* pv, const struct dbr_gr_enum* dbrv, long count)
     for (int i = 0; i < dbrv->no_str; i++) {
         // TODO:  This is no bueno. We need a new accessor above for
         //        char arrays...
-        PyObject* item = _pyca_get(dbrv->strs[i]);
+        PyObject* str = _pyca_get(dbrv->strs[i]);
+        if (!str) {
+          Py_DECREF(enstrs);
+          return -1;
+        }
+
+        PyObject* item = _pyca_decode_bytes(pv, str);
+        Py_DECREF(str);
         if (!item) {
             Py_DECREF(enstrs);
             return -1;
