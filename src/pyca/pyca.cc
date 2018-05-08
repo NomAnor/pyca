@@ -732,14 +732,22 @@ extern "C" {
 #endif
 
     // Initialize python module
-    DECLARE_INIT(pyca)
+#ifdef IS_PY3K
+    PyMODINIT_FUNC PyInit_pyca(void)
+#else
+    PyMODINIT_FUNC initpyca(void)
+#endif
     {
         // initialize numpy C API
         import_array();
 
         // initialize tp_base and ob_type fields
         if (PyType_Ready(&capv_type) < 0) {
-            INITERROR;
+#ifdef IS_PY3K
+            return NULL;
+#else
+            return;
+#endif
         }
 
 #ifdef IS_PY3K
@@ -747,8 +755,13 @@ extern "C" {
 #else
         PyObject* module = Py_InitModule("pyca", pyca_methods);
 #endif
+
         if (module == NULL) {
-            INITERROR;
+#ifdef IS_PY3K
+            return NULL;
+#else
+            return;
+#endif
         }
 
         // Export selected channel access constants
