@@ -1,6 +1,10 @@
-conda-bld-tst
-setup-py-tst
-build
+conda-bld-tst/
+setup-py-tst/
+build/
+dist/
+.pytest_cache/
+pyca.egg-info
+.eggs/
 
 *.cache
 *.pyc
@@ -9,5 +13,5 @@ __pycache__
 *.swp
 *~
 
-logs
-pyca.so
+logs/
+pyca*.so
