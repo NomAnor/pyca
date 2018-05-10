@@ -301,7 +301,7 @@ extern "C" {
 
         chid cid = pv->cid;
         if (!cid) {
-            pyca_raise_pyexc_pv("subscribe_channel", "channel is null", pv);
+            pyca_raise_pyexc_pv("put_data", "channel is null", pv);
         }
         int count = ca_element_count(cid);
         short type = ca_field_type(cid);
