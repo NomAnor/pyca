@@ -286,6 +286,15 @@ extern "C" {
                 if (tcnt < count) {
                     count = tcnt;
                 }
+            } else if (PyArray_Check(pyval)) {
+                PyArrayObject* ndarray = reinterpret_cast<PyArrayObject*>(pyval);
+                if (PyArray_NDIM(ndarray) != 1) {
+                    pyca_raise_pyexc_pv("put_data", "numpy dimension mismatch", pv);
+                }
+                int tcnt = PyArray_DIM(ndarray, 0);
+                if (tcnt < count) {
+                    count = tcnt;
+                }
             }
         }
         short dbr_type = dbf_type_to_DBR(type);
