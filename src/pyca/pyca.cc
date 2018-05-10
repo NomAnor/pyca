@@ -107,7 +107,7 @@ extern "C" {
             dbr_type = PyObject_IsTrue(pyctrl) ? DBR_CTRL_STRING : DBR_TIME_STRING;
         }
 
-        unsigned long event_mask = PyLong_AsLong(pymsk);
+        unsigned long event_mask = PyInt_AsLong(pymsk);
         int result = ca_create_subscription(dbr_type,
                                             pv->count,
                                             cid,

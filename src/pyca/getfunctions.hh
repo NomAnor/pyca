@@ -18,27 +18,27 @@ static inline PyObject* _pyca_get(const dbr_string_t value)
 
 static inline PyObject* _pyca_get(const dbr_enum_t value)
 {
-    return PyLong_FromLong(value);
+    return PyInt_FromLong(value);
 }
 
 static inline PyObject* _pyca_get(const dbr_char_t value)
 {
-    return PyLong_FromLong(value);
+    return PyInt_FromLong(value);
 }
 
 static inline PyObject* _pyca_get(const dbr_short_t value)
 {
-    return PyLong_FromLong(value);
+    return PyInt_FromLong(value);
 }
 
 static inline PyObject* _pyca_get(const dbr_ulong_t value)
 {
-    return PyLong_FromLong(value);
+    return PyInt_FromLong(value);
 }
 
 static inline PyObject* _pyca_get(const dbr_long_t value)
 {
-    return PyLong_FromLong(value);
+    return PyInt_FromLong(value);
 }
 
 static inline PyObject* _pyca_get(const dbr_float_t value)

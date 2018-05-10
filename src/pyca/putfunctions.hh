@@ -13,22 +13,22 @@ static inline void _pyca_put(PyObject* pyvalue, dbr_string_t* buf)
 
 static inline void _pyca_put(PyObject* pyvalue, dbr_enum_t* buf)
 {
-    *buf = PyLong_AsLong(pyvalue);
+    *buf = PyInt_AsLong(pyvalue);
 }
 
 static inline void _pyca_put(PyObject* pyvalue, dbr_char_t* buf)
 {
-    *buf = PyLong_AsLong(pyvalue);
+    *buf = PyInt_AsLong(pyvalue);
 }
 
 static inline void _pyca_put(PyObject* pyvalue, dbr_short_t* buf)
 {
-    *buf = PyLong_AsLong(pyvalue);
+    *buf = PyInt_AsLong(pyvalue);
 }
 
 static inline void _pyca_put(PyObject* pyvalue, dbr_long_t* buf)
 {
-    *buf = PyLong_AsLong(pyvalue);
+    *buf = PyInt_AsLong(pyvalue);
 }
 
 static inline void _pyca_put(PyObject* pyvalue, dbr_float_t* buf)

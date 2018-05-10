@@ -6,8 +6,6 @@ from pcaspy import Driver, SimpleServer
 from pcaspy.tools import ServerThread
 import pytest
 
-if sys.version_info.major >= 3:
-    long = int
 
 IOC_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'ioc')
 
@@ -58,7 +56,7 @@ class TestDriver(Driver):
 
 
 def calc_new_value(name, old_value):
-    if isinstance(old_value, int) or isinstance(old_value, long) or isinstance(old_value, float):
+    if isinstance(old_value, int) or isinstance(old_value, float):
         new_value = old_value + 1
     elif isinstance(old_value, str):
         new_value = old_value + 'x'
