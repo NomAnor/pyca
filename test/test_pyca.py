@@ -110,6 +110,11 @@ def test_data_readonly():
     with pytest.raises(ReadonlyError):
         pv.data = []
 
+def test_name():
+    pvname = 'testname'
+    pv = setup_pv(pvname, False)
+    assert pv.name == pvname
+
 
 @pytest.mark.timeout(10)
 def test_create_and_clear_channel(any_pv):
