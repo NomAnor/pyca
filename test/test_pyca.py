@@ -202,6 +202,22 @@ def test_waveform_numpy(waveform_pv):
     assert isinstance(val, numpy.ndarray)
     assert len(val) == waveform_pv.count()
 
+@pytest.mark.timeout(10)
+def test_waveform_put_numpy(waveform_pv):
+    waveform_pv.use_numpy = True
+    waveform_pv.get_data(False, -1.0)
+    pyca.flush_io()
+    assert waveform_pv.getevt_cb.wait(timeout=1)
+    old_value = waveform_pv.data['value']
+    new_value = numpy.ones(old_value.shape, old_value.dtype)
+    waveform_pv.put_data(new_value, 1.0)
+    waveform_pv.getevt_cb.reset()
+    waveform_pv.get_data(False, -1.0)
+    pyca.flush_io()
+    assert waveform_pv.getevt_cb.wait(timeout=1)
+    recv_value = waveform_pv.data['value']
+    assert (recv_value == new_value).all()
+
 
 @pytest.mark.timeout(10)
 def test_enum_strings(server):
