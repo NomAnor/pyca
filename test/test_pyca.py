@@ -1,3 +1,4 @@
+import sys
 import threading
 import pytest
 import numpy
@@ -73,6 +74,9 @@ def setup_pv(name, connect=True):
     return pv
 
 
+ReadonlyError = AttributeError if sys.version_info.major >= 3 else TypeError
+
+
 @pytest.fixture(params=all_pvs)
 def any_pv(server, request):
     pv = setup_pv(request.param)
@@ -94,6 +98,17 @@ def waveform_pv(server, request):
 
 def test_server_start(server):
     pass
+
+def test_name_readonly():
+    pv = setup_pv('test', False)
+    with pytest.raises(ReadonlyError):
+        pv.name = "new name"
+
+def test_data_readonly():
+    pv = setup_pv('test', False)
+    pv.data['value'] = "value"
+    with pytest.raises(ReadonlyError):
+        pv.data = []
 
 
 @pytest.mark.timeout(10)
