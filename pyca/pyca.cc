@@ -48,7 +48,10 @@ extern "C" {
         if (!cid) {
             pyca_raise_pyexc_pv("clear_channel", "channel is null", pv);
         }
-        int result = ca_clear_channel(cid);
+        int result;
+        Py_BEGIN_ALLOW_THREADS
+            result = ca_clear_channel(cid);
+        Py_END_ALLOW_THREADS
         if (result != ECA_NORMAL) {
             pyca_raise_caexc_pv("ca_clear_channel", result, pv);
         }
