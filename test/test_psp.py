@@ -1,23 +1,32 @@
-import sys
 import time
 import threading
-import logging
 import pytest
-import numpy as np
+import numpy
 import psp
-from conftest import test_pvs, pvbase
-
-if sys.version_info.major >= 3:
-    long = int
-
-logger = logging.getLogger(__name__)
+from conftest import all_pvs, waveform_pvs, ctrl_keys, calc_new_value
 
 
-def setup_pv(pvname, connect=True):
-    pv = psp.PV(pvname)
+def setup_pv(name, connect=True):
+    pv = psp.PV(name)
     if connect:
-        pv.connect(timeout=1.0)
+        pv.connect(timeout=1)
+        assert pv.isconnected
     return pv
+
+
+@pytest.fixture(params=all_pvs)
+def any_pv(server, request):
+    pv = setup_pv(request.param)
+    yield pv
+    if pv.isconnected:
+        pv.disconnect()
+
+@pytest.fixture(params=waveform_pvs)
+def waveform_pv(server, request):
+    pv = setup_pv(request.param)
+    yield pv
+    if pv.isconnected:
+        pv.disconnect()
 
 
 def test_server_start(server):
@@ -25,105 +34,78 @@ def test_server_start(server):
 
 
 @pytest.mark.timeout(10)
-@pytest.mark.parametrize('pvname', test_pvs)
-def test_connect_and_disconnect(pvname):
-    logger.debug('test_create_and_clear_channel %s', pvname)
+def test_connect_and_disconnect(any_pv):
+    assert any_pv.isconnected
+    any_pv.disconnect()
+    assert not any_pv.isconnected
+
+
+@pytest.mark.timeout(10)
+def test_get_data(any_pv):
+    assert any_pv.get() is not None
+
+
+@pytest.mark.timeout(10)
+def test_put_get(any_pv):
+    new_value = calc_new_value(any_pv.name, any_pv.get())
+    any_pv.put(new_value, timeout=1.0)
+    assert any_pv.get() == new_value
+
+
+@pytest.mark.timeout(10)
+def test_monitor(any_pv):
+    new_value = calc_new_value(any_pv.name, any_pv.get())
+    any_pv.monitor()
+    any_pv.put(new_value)
+    n = 0
+    while n < 10 and any_pv.value != new_value:
+        time.sleep(0.1)
+        n += 1
+    assert any_pv.value == new_value
+
+
+@pytest.mark.timeout(10)
+def test_misc(any_pv):
+    assert isinstance(any_pv.host(), str)
+    assert isinstance(any_pv.state(), int)
+    assert isinstance(any_pv.count, int)
+    assert isinstance(any_pv.type(), str)
+    assert isinstance(any_pv.rwaccess(), int)
+
+
+@pytest.mark.timeout(10)
+def test_waveform_tuple(waveform_pv):
+    waveform_pv.use_numpy = False
+    value = waveform_pv.get()
+    assert isinstance(value, tuple)
+    assert len(value) == waveform_pv.count
+
+@pytest.mark.timeout(10)
+def test_waveform_numpy(waveform_pv):
+    waveform_pv.use_numpy = True
+    value = waveform_pv.get()
+    assert isinstance(value, numpy.ndarray)
+    assert len(value) == waveform_pv.count
+
+
+@pytest.mark.timeout(10)
+def test_enum_set(server):
+    pvname = 'PYCA:TEST:ENUM'
     pv = setup_pv(pvname)
-    assert pv.isconnected
+    assert pv.get_enum_set() == ('A', 'B')
     pv.disconnect()
 
 
 @pytest.mark.timeout(10)
-@pytest.mark.parametrize('pvname', test_pvs)
-def test_get(pvname):
-    logger.debug('test_get_data %s', pvname)
-    pv = setup_pv(pvname)
-    value = pv.get()
-    assert value is not None
-
-
-@pytest.mark.timeout(10)
-@pytest.mark.parametrize('pvname', test_pvs)
-def test_put_get(pvname):
-    logger.debug('test_put_get %s', pvname)
-    pv = setup_pv(pvname)
-    old_value = pv.get()
-    pv_type = type(old_value)
-    logger.debug('%s is of type %s', pvname, pv_type)
-    if pv_type in (int, long, float):
-        new_value = old_value + 1
-    elif pv_type == str:
-        new_value = "putget"
-    elif pv_type == tuple:
-        new_value = tuple([1] * len(old_value))
-    logger.debug('caput %s %s', pvname, new_value)
-    pv.put(new_value, timeout=1.0)
-    assert pv.get() == new_value
-
-
-@pytest.mark.timeout(10)
-@pytest.mark.parametrize('pvname', test_pvs)
-def test_monitor(pvname):
-    logger.debug('test_subscribe %s', pvname)
-    pv = setup_pv(pvname)
-    old_value = pv.get()
-    pv_type = type(old_value)
-    pv.monitor()
-    logger.debug('%s is of type %s', pvname, pv_type)
-    if pv_type in (int, long, float):
-        new_value = old_value + 1
-    elif pv_type == str:
-        new_value = "putmon"
-    elif pv_type == tuple:
-        new_value = tuple([1] * len(old_value))
-    logger.debug('caput %s %s', pvname, new_value)
-    pv.put(new_value)
-    n = 0
-    while n < 10 and pv.value != new_value:
-        time.sleep(0.1)
-        n += 1
-    assert pv.value == new_value
-
-
-@pytest.mark.timeout(10)
-@pytest.mark.parametrize('pvname', test_pvs)
-def test_misc(pvname):
-    logger.debug('test_misc %s', pvname)
-    pv = setup_pv(pvname)
-    assert isinstance(pv.host(), str)
-    assert isinstance(pv.state(), int)
-    assert isinstance(pv.count, int)
-    assert isinstance(pv.type(), str)
-    assert isinstance(pv.rwaccess(), int)
-
-
-@pytest.mark.timeout(10)
-def test_waveform():
-    logger.debug('test_waveform')
-    pv = setup_pv(pvbase + ":WAVE")
-    # Do as a tuple
-    pv.use_numpy = False
-    val = pv.get()
-    assert isinstance(val, tuple)
-    assert len(val) == pv.count
-    # Do as a np.ndarray
-    pv.use_numpy = True
-    val = pv.get()
-    assert isinstance(val, np.ndarray)
-    assert len(val) == pv.count
-
-
-@pytest.mark.timeout(10)
-def test_threads():
-    logger.debug('test_threads')
-
+def test_threads(server):
     def some_thread_thing(pvname):
         psp.utils.ensure_context()
         pv = setup_pv(pvname)
-        val = pv.get()
-        assert isinstance(val, tuple)
+        assert pv.get() is not None
+        pv.disconnect()
 
-    pvname = pvbase + ":WAVE"
-    thread = threading.Thread(target=some_thread_thing, args=(pvname,))
-    thread.start()
-    thread.join()
+    threads = [ threading.Thread(target=some_thread_thing, args=(x,)) for x in all_pvs ]
+    for x in threads:
+        x.start()
+    for x in threads:
+        x.join()

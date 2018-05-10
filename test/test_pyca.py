@@ -1,16 +1,8 @@
-import sys
-import time
 import threading
-import logging
 import pytest
-import numpy as np
+import numpy
 import pyca
-from conftest import test_pvs, pvbase
-
-if sys.version_info.major >= 3:
-    long = int
-
-logger = logging.getLogger(__name__)
+from conftest import all_pvs, waveform_pvs, ctrl_keys, calc_new_value
 
 
 class ConnectCallback(object):
@@ -22,26 +14,12 @@ class ConnectCallback(object):
         self.lock = threading.RLock()
 
     def wait(self, timeout=None):
-        logger.debug('Wait on connect callback %s', self.name)
-        ok = self.cev.wait(timeout=timeout)
-        if ok:
-            logger.debug('Wait complete on connect %s', self.name)
-        else:
-            logger.debug('Wait fail on connect %s', self.name)
-        return ok
+        return self.cev.wait(timeout=timeout)
 
     def wait_dc(self, timeout=None):
-        logger.debug('Wait on disconnect callback %s', self.name)
-        ok = self.dcev.wait(timeout=timeout)
-        if ok:
-            logger.debug('Wait complete on disconnect %s', self.name)
-        else:
-            logger.debug('Wait fail on disconnect %s', self.name)
-        return ok
+        return self.dcev.wait(timeout=timeout)
 
     def __call__(self, is_connected):
-        logger.debug('Connect callback in %s, is_connected=%s',
-                     self.name, is_connected)
         with self.lock:
             self.connected = is_connected
             if self.connected:
@@ -58,33 +36,60 @@ class GetCallback(object):
         self.gev = threading.Event()
 
     def wait(self, timeout=None):
-        logger.debug('Wait on get callback %s', self.name)
-        ok = self.gev.wait(timeout=timeout)
-        if ok:
-            logger.debug('Wait complete on get %s', self.name)
-        else:
-            logger.debug('Wait fail on get %s', self.name)
-        return ok
+        return self.gev.wait(timeout=timeout)
 
     def reset(self):
-        logger.debug('Clear get callback %s', self.name)
         self.gev.clear()
 
     def __call__(self, exception=None):
-        logger.debug('Get callback in %s, exception=%s',
-                     self.name, exception)
         if exception is None:
             self.gev.set()
 
 
-def setup_pv(pvname, connect=True):
-    pv = pyca.capv(pvname)
-    pv.connect_cb = ConnectCallback(pvname)
-    pv.getevt_cb = GetCallback(pvname)
+class MonitorCallback(object):
+    def __init__(self, name):
+        self.name = name
+        self.mev = threading.Event()
+
+    def wait(self, timeout=None):
+        return self.mev.wait(timeout=timeout)
+
+    def reset(self):
+        self.mev.clear()
+
+    def __call__(self, exception=None):
+        if exception is None:
+            self.mev.set()
+
+
+def setup_pv(name, connect=True):
+    pv = pyca.capv(name)
+    pv.connect_cb = ConnectCallback(name)
+    pv.getevt_cb = GetCallback(name)
+    pv.monitor_cb = MonitorCallback(name)
     if connect:
         pv.create_channel()
-        pv.connect_cb.wait(timeout=1)
+        assert pv.connect_cb.wait(timeout=1)
     return pv
+
+
+@pytest.fixture(params=all_pvs)
+def any_pv(server, request):
+    pv = setup_pv(request.param)
+    yield pv
+    try:
+        pv.clear_channel()
+    except pyca.pyexc:
+        pass
+
+@pytest.fixture(params=waveform_pvs)
+def waveform_pv(server, request):
+    pv = setup_pv(request.param)
+    yield pv
+    try:
+        pv.clear_channel()
+    except pyca.pyexc:
+        pass
 
 
 def test_server_start(server):
@@ -92,150 +97,116 @@ def test_server_start(server):
 
 
 @pytest.mark.timeout(10)
-@pytest.mark.parametrize('pvname', test_pvs)
-def test_create_and_clear_channel(pvname):
-    logger.debug('test_create_and_clear_channel %s', pvname)
-    pv = setup_pv(pvname)
-    assert pv.connect_cb.connected
-    # No callbacks on dc
-    pv.clear_channel()
-    time.sleep(1)
+def test_create_and_clear_channel(any_pv):
+    any_pv.clear_channel()
+    pyca.flush_io()
+    assert not any_pv.connect_cb.wait_dc(timeout=1)
     with pytest.raises(pyca.pyexc):
-        pv.get_data(False, -1.0)
-
-
-@pytest.mark.timeout(10)
-@pytest.mark.parametrize('pvname', test_pvs)
-def test_get_data(pvname):
-    logger.debug('test_get_data %s', pvname)
-    pv = setup_pv(pvname)
-    # get time vars
-    pv.get_data(False, -1.0)
-    pyca.flush_io()
-    assert pv.getevt_cb.wait(timeout=1)
-    pv.getevt_cb.reset()
-    # get ctrl vars
-    pv.get_data(True, -1.0)
-    pyca.flush_io()
-    assert pv.getevt_cb.wait(timeout=1)
-    # check that the data has all the keys
-    all_keys = ('status', 'value', 'secs', 'nsec')
-    for key in all_keys:
-        assert key in pv.data
-    # check that value is not None
-    assert pv.data['value'] is not None
-
+        any_pv.get_data(False, -1.0)
 
 @pytest.mark.timeout(10)
-@pytest.mark.parametrize('pvname', test_pvs)
-def test_put_get(pvname):
-    logger.debug('test_put_get %s', pvname)
-    pv = setup_pv(pvname)
-    pv.get_data(False, -1.0)
+def test_get_time_data(any_pv):
+    any_pv.get_data(False, -1.0)
     pyca.flush_io()
-    assert pv.getevt_cb.wait(timeout=1)
-    old_value = pv.data['value']
-    pv_type = type(old_value)
-    logger.debug('%s is of type %s', pvname, pv_type)
-    if pv_type in (int, long, float):
-        new_value = old_value + 1
-    elif pv_type == str:
-        new_value = "putget"
-    elif pv_type == tuple:
-        new_value = tuple([1] * len(old_value))
-    logger.debug('caput %s %s', pvname, new_value)
-    pv.put_data(new_value, 1.0)
-    pv.getevt_cb.reset()
-    pv.get_data(False, -1.0)
+    assert any_pv.getevt_cb.wait(timeout=1)
+    assert 'value' in any_pv.data
+    assert any_pv.data['value'] is not None
+
+@pytest.mark.timeout(10)
+def test_get_ctrl_data(any_pv):
+    any_pv.get_data(True, -1.0)
     pyca.flush_io()
-    assert pv.getevt_cb.wait(timeout=1)
-    recv_value = pv.data['value']
+    assert any_pv.getevt_cb.wait(timeout=1)
+    assert 'value' in any_pv.data
+    assert any_pv.data['value'] is not None
+    for key in ctrl_keys[any_pv.name]:
+        assert key in any_pv.data
+
+@pytest.mark.timeout(10)
+def test_put_get(any_pv):
+    any_pv.get_data(False, -1.0)
+    pyca.flush_io()
+    assert any_pv.getevt_cb.wait(timeout=1)
+    new_value = calc_new_value(any_pv.name, any_pv.data['value'])
+    any_pv.put_data(new_value, 1.0)
+    any_pv.getevt_cb.reset()
+    any_pv.get_data(False, -1.0)
+    pyca.flush_io()
+    assert any_pv.getevt_cb.wait(timeout=1)
+    recv_value = any_pv.data['value']
     assert recv_value == new_value
 
 
 @pytest.mark.timeout(10)
-@pytest.mark.parametrize('pvname', test_pvs)
-def test_subscribe(pvname):
-    logger.debug('test_subscribe %s', pvname)
-    pv = setup_pv(pvname)
-    ev = threading.Event()
-
-    def mon_cb(exception=None):
-        logger.debug('monitor_cb in %s, exception=%s',
-                     pvname, exception)
-        if exception is None:
-            ev.set()
-    pv.monitor_cb = mon_cb
-    pv.subscribe_channel(pyca.DBE_VALUE | pyca.DBE_LOG | pyca.DBE_ALARM, False)
-    # Repeat the put/get test without the get
-    pv.get_data(False, -1.0)
+def test_subscribe(any_pv):
+    any_pv.get_data(False, -1.0)
     pyca.flush_io()
-    assert pv.getevt_cb.wait(timeout=1)
-    old_value = pv.data['value']
-    pv_type = type(old_value)
-    logger.debug('%s is of type %s', pvname, pv_type)
-    if pv_type in (int, long, float):
-        new_value = old_value + 1
-    elif pv_type == str:
-        new_value = "putmon"
-    elif pv_type == tuple:
-        new_value = tuple([1] * len(old_value))
-    logger.debug('caput %s %s', pvname, new_value)
-    ev.clear()
-    pv.put_data(new_value, 1.0)
-    assert ev.wait(timeout=1)
-    recv_value = pv.data['value']
-    assert recv_value == new_value
+    assert any_pv.getevt_cb.wait(timeout=1)
+    new_value = calc_new_value(any_pv.name, any_pv.data['value'])
+    any_pv.subscribe_channel(pyca.DBE_VALUE | pyca.DBE_LOG | pyca.DBE_ALARM, False)
+    pyca.flush_io()
+    # subscription start monitor
+    assert any_pv.monitor_cb.wait(timeout=1)
+    any_pv.monitor_cb.reset()
+    any_pv.put_data(new_value, 1.0)
+    assert any_pv.monitor_cb.wait(timeout=1)
+    assert any_pv.data['value'] == new_value
 
 
 @pytest.mark.timeout(10)
-@pytest.mark.parametrize('pvname', test_pvs)
-def test_misc(pvname):
-    logger.debug('test_misc %s', pvname)
-    pv = setup_pv(pvname)
-    assert isinstance(pv.host(), str)
-    assert isinstance(pv.state(), int)
-    assert isinstance(pv.count(), int)
-    assert isinstance(pv.type(), str)
-    assert isinstance(pv.rwaccess(), int)
+def test_misc(any_pv):
+    assert isinstance(any_pv.host(), str)
+    assert isinstance(any_pv.state(), int)
+    assert isinstance(any_pv.count(), int)
+    assert isinstance(any_pv.type(), str)
+    assert isinstance(any_pv.rwaccess(), int)
 
 
 @pytest.mark.timeout(10)
-def test_waveform():
-    logger.debug('test_waveform')
-    pv = setup_pv(pvbase + ":WAVE")
-    # Do as a tuple
-    pv.use_numpy = False
-    pv.get_data(False, -1.0)
+def test_waveform_tuple(waveform_pv):
+    waveform_pv.use_numpy = False
+    waveform_pv.get_data(False, -1.0)
     pyca.flush_io()
-    assert pv.getevt_cb.wait(timeout=1)
-    val = pv.data['value']
+    assert waveform_pv.getevt_cb.wait(timeout=1)
+    val = waveform_pv.data['value']
     assert isinstance(val, tuple)
-    assert len(val) == pv.count()
-    pv.getevt_cb.reset()
-    # Do as a np.ndarray
-    pv.use_numpy = True
-    pv.get_data(False, -1.0)
+    assert len(val) == waveform_pv.count()
+
+@pytest.mark.timeout(10)
+def test_waveform_numpy(waveform_pv):
+    waveform_pv.use_numpy = True
+    waveform_pv.get_data(False, -1.0)
     pyca.flush_io()
-    assert pv.getevt_cb.wait(timeout=1)
-    val = pv.data['value']
-    assert isinstance(val, np.ndarray)
-    assert len(val) == pv.count()
+    assert waveform_pv.getevt_cb.wait(timeout=1)
+    val = waveform_pv.data['value']
+    assert isinstance(val, numpy.ndarray)
+    assert len(val) == waveform_pv.count()
 
 
 @pytest.mark.timeout(10)
-def test_threads():
-    logger.debug('test_threads')
+def test_enum_strings(server):
+    pvname = 'PYCA:TEST:ENUM'
+    pv = setup_pv(pvname)
+    pv.get_enum_strings(-1.0)
+    pyca.flush_io()
+    assert pv.getevt_cb.wait(timeout=1)
+    assert pv.data['enum_set'] == ('A', 'B')
+    pv.clear_channel()
 
+
+@pytest.mark.timeout(10)
+def test_threads(server):
     def some_thread_thing(pvname):
         pyca.attach_context()
         pv = setup_pv(pvname)
         pv.get_data(False, -1.0)
         pyca.flush_io()
         assert pv.getevt_cb.wait(timeout=1)
-        assert isinstance(pv.data['value'], tuple)
+        assert 'value' in pv.data
+        pv.clear_channel()
 
-    pvname = pvbase + ":WAVE"
-    thread = threading.Thread(target=some_thread_thing, args=(pvname,))
-    thread.start()
-    thread.join()
+    threads = [ threading.Thread(target=some_thread_thing, args=(x,)) for x in all_pvs ]
+    for x in threads:
+        x.start()
+    for x in threads:
+        x.join()
