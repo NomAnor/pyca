@@ -27,9 +27,8 @@ extern "C" {
         if (pv->cid) {
             pyca_raise_pyexc_pv("create_channel", "channel already created", pv);
         }
-        const char* name = PyString_AsString(pv->name);
         const int capriority = 10;
-        int result = ca_create_channel(name,
+        int result = ca_create_channel(pv->name,
                                        pyca_connection_handler,
                                        self,
                                        capriority,
@@ -73,7 +72,7 @@ extern "C" {
             pyca_raise_pyexc_pv("subscribe_channel", "error parsing arguments", pv);
         }
 
-        if (pv->simulated != Py_None) {
+        if (pv->simulated) {
             if (PyObject_IsTrue(pyctrl)) {
                 pyca_raise_pyexc_pv("subscribe_channel", "Can't get control info on simulated PV", pv);
             }
@@ -125,7 +124,7 @@ extern "C" {
     {
         capv* pv = reinterpret_cast<capv*>(self);
 
-        if (pv->simulated != Py_None) {
+        if (pv->simulated) {
             pv->didmon = 0;
             Py_RETURN_NONE;
         }
@@ -217,7 +216,7 @@ extern "C" {
             pyca_raise_pyexc_pv("get_data", "error parsing arguments", pv);
         }
 
-        if (pv->simulated != Py_None) {
+        if (pv->simulated) {
             if (PyObject_IsTrue(pyctrl)) {
                 pyca_raise_pyexc_pv("get_data", "Can't get control info on simulated PV", pv);
             }
@@ -415,21 +414,24 @@ extern "C" {
     static int capv_init(PyObject* self, PyObject* args, PyObject* kwds)
     {
         capv* pv = reinterpret_cast<capv*>(self);
-        if (!PyArg_ParseTuple(args, "O:capv_init", &pv->name) ||
-            !PyString_Check(pv->name)) {
+        PyObject* name = NULL;
+        if (!PyArg_ParseTuple(args, "O:capv_init", &name) ||
+            !PyString_Check(name)) {
             pyca_raise_pyexc_int("capv_init", "cannot get PV name", pv);
         }
-        Py_INCREF(pv->name);
+        char const* c_name = PyString_AsString(name);
+        if (!c_name) {
+            return -1;
+        }
+        pv->name = strdup(c_name);
         pv->processor = NULL;
         pv->connect_cb = NULL;
         pv->monitor_cb = NULL;
         pv->rwaccess_cb = NULL;
         pv->getevt_cb = NULL;
         pv->putevt_cb = NULL;
-        pv->simulated = Py_None;
-        Py_INCREF(pv->simulated);
-        pv->use_numpy = numpy_arrays ? Py_True : Py_False;
-        Py_INCREF(pv->use_numpy);
+        pv->simulated = 0;
+        pv->use_numpy = numpy_arrays;
         pv->cid = 0;
         pv->getbuffer = 0;
         pv->getbufsiz = 0;
@@ -442,16 +444,14 @@ extern "C" {
     static void capv_dealloc(PyObject* self)
     {
         capv* pv = reinterpret_cast<capv*>(self);
+        free(pv->name);
         Py_XDECREF(pv->data);
-        Py_XDECREF(pv->name);
         Py_XDECREF(pv->processor);
         Py_XDECREF(pv->connect_cb);
         Py_XDECREF(pv->monitor_cb);
         Py_XDECREF(pv->rwaccess_cb);
         Py_XDECREF(pv->getevt_cb);
         Py_XDECREF(pv->putevt_cb);
-        Py_XDECREF(pv->simulated);
-        Py_XDECREF(pv->use_numpy);
         if (pv->cid) {
             ca_clear_channel(pv->cid);
             pv->cid = 0;
@@ -506,16 +506,16 @@ extern "C" {
 
     // Register capv members
     static PyMemberDef capv_members[] = {
-        {"name",        T_OBJECT_EX, offsetof(capv, name),        0, "name"},
-        {"data",        T_OBJECT_EX, offsetof(capv, data),        0, "data"},
+        {"name",        T_STRING,    offsetof(capv, name),        1, "name"}, // READONLY
+        {"data",        T_OBJECT_EX, offsetof(capv, data),        1, "data"}, // READONLY
         {"processor",   T_OBJECT_EX, offsetof(capv, processor),   0, "processor"},
         {"connect_cb",  T_OBJECT_EX, offsetof(capv, connect_cb),  0, "connect_cb"},
         {"monitor_cb",  T_OBJECT_EX, offsetof(capv, monitor_cb),  0, "monitor_cb"},
         {"rwaccess_cb", T_OBJECT_EX, offsetof(capv, rwaccess_cb), 0, "rwaccess_cb"},
         {"getevt_cb",   T_OBJECT_EX, offsetof(capv, getevt_cb),   0, "getevt_cb"},
         {"putevt_cb",   T_OBJECT_EX, offsetof(capv, putevt_cb),   0, "putevt_cb"},
-        {"simulated",   T_OBJECT_EX, offsetof(capv, simulated),   0, "simulated"},
-        {"use_numpy",   T_OBJECT_EX, offsetof(capv, use_numpy),   0, "use_numpy"},
+        {"simulated",   T_BOOL,      offsetof(capv, simulated),   0, "simulated"},
+        {"use_numpy",   T_BOOL,      offsetof(capv, use_numpy),   0, "use_numpy"},
         {NULL}
     };
 

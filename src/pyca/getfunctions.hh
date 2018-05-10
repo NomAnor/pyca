@@ -113,7 +113,7 @@ PyObject* _pyca_get_value(capv* pv, const T* dbrv, long count)
         return _pyca_get(dbrv->value);
     } else {
         if (!pv->processor) {
-            if (PyObject_IsTrue(pv->use_numpy)) {
+            if (pv->use_numpy) {
                 npy_intp dims[1] = {count};
                 int typenum = _numpy_array_type(&(dbrv->value));
                 PyObject* nparray = PyArray_EMPTY(1, dims, typenum, 0);

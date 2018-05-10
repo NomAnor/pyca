@@ -102,7 +102,7 @@ class Pv(pyca.capv):
         this list
     """
     def __init__(self, name, initialize=False, count=None,
-                 control=False, monitor=False, use_numpy=None,
+                 control=False, monitor=False, use_numpy=False,
                  **kw):
 
         pyca.capv.__init__(self, name)

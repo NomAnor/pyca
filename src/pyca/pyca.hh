@@ -3,7 +3,7 @@
 // Structure to define a channel access PV for python
 struct capv {
     PyObject_HEAD
-    PyObject* name;       // PV name
+    char* name;           // PV name
     PyObject* data;       // data dictionary
     PyObject* processor;  // user processor function
     PyObject* connect_cb; // connection callback
@@ -11,8 +11,8 @@ struct capv {
     PyObject* rwaccess_cb;// access rights callback
     PyObject* getevt_cb;  // event callback
     PyObject* putevt_cb;  // event callback
-    PyObject* simulated;  // None if real PV, otherwise just simulated.
-    PyObject* use_numpy;  // True to use numpy array instead of tuple
+    char simulated;       // False if real PV, otherwise just simulated.
+    char use_numpy;       // True to use numpy array instead of tuple
     chid cid;             // channel access ID
     char* getbuffer;      // buffer for received data
     unsigned getbufsiz;   // received data buffer size
@@ -37,7 +37,7 @@ static PyObject* pyca_caexc = NULL;
 
 #define pyca_raise_pyexc_pv(function, reason, pv) { \
     PyErr_Format(pyca_pyexc, "%s in %s() file %s at line %d PV %s", \
-        reason, function, __FILE__, __LINE__, PyString_AsString(pv->name)); \
+        reason, function, __FILE__, __LINE__, pv->name); \
     return NULL; }
 
 #define pyca_raise_pyexc(function, reason) { \
@@ -48,7 +48,7 @@ static PyObject* pyca_caexc = NULL;
 #define pyca_raise_caexc_pv(function, reason, pvname) { \
     PyErr_Format(pyca_caexc, "error %d (%s) from %s() file %s at line %d PV %s",\
         reason, ca_message(reason), function, __FILE__, __LINE__, \
-        PyString_AsString(pv->name)); \
+        pv->name); \
     return NULL; }
 
 #define pyca_raise_caexc(function, reason) { \
@@ -58,7 +58,7 @@ static PyObject* pyca_caexc = NULL;
 
 #define pyca_data_status_msg(reason, pvname) \
     PyString_FromFormat("data value status %d (%s) PV %s", \
-        reason, ca_message(reason), PyString_AsString(pv->name));
+        reason, ca_message(reason), pv->name);
 
 // Notes on some python functions behavior towards the reference count:
 // PyTuple_SetItem():        0  (tuple steals the item)
