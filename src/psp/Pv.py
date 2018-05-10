@@ -565,8 +565,12 @@ class Pv(pyca.capv):
 
             self.wait_ready(DEFAULT_TIMEOUT * 2)
 
+        new_value = value
+        if self.count == 1 and (isinstance(value, tuple) or isinstance(value, np.ndarray)):
+            new_value = value[0]
+
         with utils.TimeoutSem(self.__pyca_sem, tmo):
-            self.put_data(value, tmo)
+            self.put_data(new_value, tmo)
 
         return value
 

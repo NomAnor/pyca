@@ -91,24 +91,7 @@ void* _pyca_put_value(capv* pv, PyObject* pyvalue, long count)
     }
     T* buffer = reinterpret_cast<T*>(pv->putbuffer);
     if (count == 1) {
-        if (PyList_Check(pyvalue)) {
-            PyObject* pyval = PyList_GetItem(pyvalue, 0);
-            if (!pyval) return NULL;
-
-            if (_pyca_put(pyval, buffer) != 0) return NULL;
-        } else if (PyArray_Check(pyvalue)) {
-            void* npdata = PyArray_GETPTR1(pyvalue, 0);
-
-            if (PyArray_IsPythonScalar(pyvalue)) {
-                PyObject* pyval = PyArray_GETITEM(pyvalue, npdata);
-
-                if (_pyca_put(pyval, buffer) != 0) return NULL;
-            } else {
-                if (_pyca_put_np(npdata, buffer) != 0) return NULL;
-            }
-        } else {
-            if (_pyca_put(pyvalue, buffer) != 0) return NULL;
-        }
+        if (_pyca_put(pyvalue, buffer) != 0) return NULL;
     } else {
         if (PyList_Check(pyvalue)) {
             for (long i = 0; i < count; i++) {
