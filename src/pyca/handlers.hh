@@ -35,7 +35,8 @@ static void pyca_monitor_handler(struct event_handler_args args)
     PyGILState_STATE gstate = PyGILState_Ensure();
     PyObject* pyexc = NULL;
     if (args.status == ECA_NORMAL) {
-        if (!_pyca_event_process(pv, args.dbr, args.type, args.count)) {
+        if (_pyca_event_process(pv, args.dbr, args.type, args.count) != 0) {
+            PyErr_Clear();
             pyexc = pyca_data_status_msg(ECA_BADTYPE, pv);
         }
     } else {
@@ -78,7 +79,8 @@ static void pyca_getevent_handler(struct event_handler_args args)
     PyGILState_STATE gstate = PyGILState_Ensure();
     PyObject* pyexc = NULL;
     if (args.status == ECA_NORMAL) {
-        if (!_pyca_event_process(pv, args.dbr, args.type, args.count)) {
+        if (_pyca_event_process(pv, args.dbr, args.type, args.count) != 0) {
+            PyErr_Clear();
             pyexc = pyca_data_status_msg(ECA_BADTYPE, pv);
         }
     } else {

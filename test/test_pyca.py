@@ -183,7 +183,7 @@ def test_misc(any_pv):
 
 
 @pytest.mark.timeout(10)
-def test_waveform_tuple(waveform_pv):
+def test_waveform_list(waveform_pv):
     waveform_pv.use_numpy = False
     waveform_pv.get_data(False, -1.0)
     pyca.flush_io()

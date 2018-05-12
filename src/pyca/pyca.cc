@@ -183,9 +183,7 @@ extern "C" {
             if (result != ECA_NORMAL) {
                 pyca_raise_caexc_pv("ca_pend_io", result, pv);
             }
-            if (!_pyca_event_process(pv, &buffer, DBR_GR_ENUM, 1)) {
-                pyca_raise_pyexc_pv("get_enum_strings", "un-handled type", pv);
-            }
+            if (_pyca_event_process(pv, &buffer, DBR_GR_ENUM, 1) != 0) return NULL;
         }
         Py_RETURN_NONE;
     }
@@ -243,9 +241,7 @@ extern "C" {
             }
         } else {
             void* buffer = _pyca_adjust_buffer_size(pv, dbr_type, pv->count, 0);
-            if (!buffer) {
-                pyca_raise_pyexc_pv("get_data", "un-handled type", pv);
-            }
+            if (!buffer) return NULL;
             int result = ca_array_get(dbr_type,
                                       pv->count,
                                       cid,
@@ -259,9 +255,7 @@ extern "C" {
             if (result != ECA_NORMAL) {
                 pyca_raise_caexc_pv("ca_pend_io", result, pv);
             }
-            if (!_pyca_event_process(pv, buffer, dbr_type, pv->count)) {
-                pyca_raise_pyexc_pv("get_data", "un-handled type", pv);
-            }
+            if (_pyca_event_process(pv, buffer, dbr_type, pv->count) != 0) return NULL;
         }
         Py_RETURN_NONE;
     }
