@@ -287,9 +287,7 @@ extern "C" {
         }
         short dbr_type = dbf_type_to_DBR(type);
         const void* buffer = _pyca_put_buffer(pv, pyval, dbr_type, count);
-        if (!buffer) {
-            pyca_raise_pyexc_pv("put_data", "un-handled type", pv);
-        }
+        if (!buffer) return NULL;
         if (timeout < 0) {
             int result = ca_array_put_callback(dbr_type,
                                                count,
