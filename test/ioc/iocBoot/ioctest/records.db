@@ -1,0 +1,39 @@
+record(longin, "PYCA:TEST:LONG") {
+  field(DESC, "Test record")
+  field(DTYP, "Soft Channel")
+  field(SCAN, "Passive")
+}
+
+record(ai, "PYCA:TEST:DOUBLE") {
+  field(DESC, "Test record")
+  field(DTYP, "Soft Channel")
+  field(SCAN, "Passive")
+}
+
+record(stringin, "PYCA:TEST:STRING") {
+  field(DESC, "Test record")
+  field(DTYP, "Soft Channel")
+  field(SCAN, "Passive")
+}
+
+record(mbbi, "PYCA:TEST:ENUM") {
+  field(DESC, "Test record")
+  field(DTYP, "Soft Channel")
+  field(SCAN, "Passive")
+  field(ZRST, "A")
+  field(ONST, "B")
+}
+
+record(waveform, "PYCA:TEST:WAVE_LONG") {
+  field(DESC, "Test record")
+  field(SCAN, "Passive")
+  field(NELM, 10)
+  field(FTVL, "LONG")
+}
+
+record(waveform, "PYCA:TEST:WAVE_DOUBLE") {
+  field(DESC, "Test record")
+  field(SCAN, "Passive")
+  field(NELM, 10)
+  field(FTVL, "DOUBLE")
+}

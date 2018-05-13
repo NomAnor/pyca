@@ -1,0 +1,6 @@
+ASYN = /home/andre/data/DELTA/TODO/deltadm/epics/test/support/asyn
+STREAMDEVICE = /home/andre/data/DELTA/TODO/deltadm/epics/test/support/streamdevice
+MODBUS = /home/andre/data/DELTA/TODO/deltadm/epics/test/support/modbus
+WAGO = /home/andre/data/DELTA/TODO/deltadm/epics/test/support/wago
+
+EPICS_BASE = /opt/epics/3.14.12.5/base

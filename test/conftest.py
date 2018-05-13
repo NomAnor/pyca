@@ -1,10 +1,15 @@
 import sys
+import os
+import time
+import subprocess
 from pcaspy import Driver, SimpleServer
 from pcaspy.tools import ServerThread
 import pytest
 
 if sys.version_info.major >= 3:
     long = int
+
+IOC_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'ioc')
 
 pvdb = {
     'PYCA:TEST:LONG': dict(type="int"),
@@ -36,6 +41,15 @@ ctrl_keys = {
 all_pvs = list(pvdb.keys())
 waveform_pvs = list(x for x in pvdb.keys() if x.find('WAVE') >= 0)
 
+def pytest_addoption(parser):
+    parser.addoption("--ioc", action="store_true", default=False, help="use real ioc")
+
+def pytest_runtest_setup(item):
+    iocmark = item.get_marker("ioc")
+    if iocmark is not None:
+        if not item.config.getoption('ioc'):
+            pytest.skip("test requires epics ioc")
+
 
 # A derived class is strictly needed for pcaspy
 class TestDriver(Driver):
@@ -54,12 +68,19 @@ def calc_new_value(name, old_value):
 
 
 @pytest.fixture(scope='session')
-def server():
-    server = SimpleServer()
-    server.createPV('', pvdb)
-    server_thread = ServerThread(server)
-    server_thread.start()
-    driver = TestDriver()
-    yield server
-    driver = None
-    server_thread.stop()
+def server(pytestconfig):
+    if pytestconfig.getoption('ioc'):
+        server = subprocess.Popen([os.path.join(IOC_DIR, 'iocBoot/ioctest/st.cmd')], cwd=os.path.join(IOC_DIR, 'iocBoot/ioctest'))
+        time.sleep(1)
+        yield server
+        server.terminate()
+    else:
+        server = SimpleServer()
+        server.createPV('', pvdb)
+        server_thread = ServerThread(server)
+        server_thread.start()
+        driver = TestDriver()
+        yield server
+        driver = None
+        server_thread.stop()
+
