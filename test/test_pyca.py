@@ -250,7 +250,7 @@ def test_threads(server):
 
 
 @pytest.mark.timeout(10)
-def test_string_encoding(server):
+def test_string_default_encoding(server):
     pvname = 'PYCA:TEST:STRING'
     value = '10 °C'
 
@@ -266,7 +266,7 @@ def test_string_encoding(server):
 
 @pytest.mark.ioc
 @pytest.mark.timeout(10)
-def test_unit_encoding(server):
+def test_unit_default_encoding(server):
     pvname = 'PYCA:TEST:LONG'
     unit = '°C'
 
@@ -283,7 +283,7 @@ def test_unit_encoding(server):
 
 @pytest.mark.ioc
 @pytest.mark.timeout(10)
-def test_enum_encoding(server):
+def test_enum_default_encoding(server):
     pvname = 'PYCA:TEST:ENUM'
     enum = '°C'
 
@@ -292,6 +292,127 @@ def test_enum_encoding(server):
     pv.clear_channel()
 
     pv = setup_pv(pvname)
+    pv.get_enum_strings(-1.0)
+    pyca.flush_io()
+    assert pv.getevt_cb.wait(timeout=1)
+    assert pv.data['enum_set'] == (enum, 'B')
+    pv.clear_channel()
+
+
+@pytest.mark.timeout(10)
+def test_string_no_encoding(server):
+    pvname = 'PYCA:TEST:STRING'
+    value = '10 °C'
+
+    pv = setup_pv(pvname)
+    pv.encoding = False
+    if sys.version_info.major >= 3:
+        value = value.encode('utf-8')
+    pv.put_data(value, 1.0)
+    pyca.flush_io()
+
+    pv.get_data(False, -1.0)
+    pyca.flush_io()
+    assert pv.getevt_cb.wait(timeout=1)
+    assert pv.data['value'] == value
+    pv.clear_channel()
+
+@pytest.mark.ioc
+@pytest.mark.timeout(10)
+def test_unit_no_encoding(server):
+    pvname = 'PYCA:TEST:LONG'
+    unit = '°C'
+
+    pv = setup_pv(pvname + '.EGU')
+    pv.encoding = False
+    if sys.version_info.major >= 3:
+        unit = unit.encode('utf-8')
+    pv.put_data(unit, 1.0)
+    pv.clear_channel()
+
+    pv = setup_pv(pvname)
+    pv.encoding = False
+    pv.get_data(True, -1.0)
+    pyca.flush_io()
+    assert pv.getevt_cb.wait(timeout=1)
+    assert pv.data['units'] == unit
+    pv.clear_channel()
+
+@pytest.mark.ioc
+@pytest.mark.timeout(10)
+def test_enum_no_encoding(server):
+    pvname = 'PYCA:TEST:ENUM'
+    enum = '°C'
+
+    pv = setup_pv(pvname + '.ZRST')
+    pv.encoding = False
+    if sys.version_info.major >= 3:
+        enum = enum.encode('utf-8')
+    pv.put_data(enum, 1.0)
+    pv.clear_channel()
+
+
+    pv = setup_pv(pvname)
+    pv.encoding = False
+    pv.get_enum_strings(-1.0)
+    pyca.flush_io()
+    assert pv.getevt_cb.wait(timeout=1)
+    if sys.version_info.major >= 3:
+        assert pv.data['enum_set'] == (enum, b'B')
+    else:
+        assert pv.data['enum_set'] == (enum, 'B')
+    pv.clear_channel()
+
+
+@pytest.mark.ioc
+@pytest.mark.timeout(10)
+def test_string_explicit_encoding(server):
+    pvname = 'PYCA:TEST:STRING'
+    value = u'10 °C'
+
+    pv = setup_pv(pvname)
+    pv.encoding = 'iso-8859-15'
+    pv.put_data(value, 1.0)
+    pyca.flush_io()
+
+    pv.get_data(False, -1.0)
+    pyca.flush_io()
+    assert pv.getevt_cb.wait(timeout=1)
+    assert pv.data['value'] == value
+    pv.clear_channel()
+
+@pytest.mark.ioc
+@pytest.mark.timeout(10)
+def test_unit_explicit_encoding(server):
+    pvname = 'PYCA:TEST:LONG'
+    unit = u'°C'
+
+    pv = setup_pv(pvname + '.EGU')
+    pv.encoding = 'iso-8859-15'
+    pv.put_data(unit, 1.0)
+    pv.clear_channel()
+
+    pv = setup_pv(pvname)
+    pv.encoding = 'iso-8859-15'
+    pv.get_data(True, -1.0)
+    pyca.flush_io()
+    assert pv.getevt_cb.wait(timeout=1)
+    assert pv.data['units'] == unit
+    pv.clear_channel()
+
+@pytest.mark.ioc
+@pytest.mark.timeout(10)
+def test_enum_explicit_encoding(server):
+    pvname = 'PYCA:TEST:ENUM'
+    enum = u'°C'
+
+    pv = setup_pv(pvname + '.ZRST')
+    pv.encoding = 'iso-8859-15'
+    pv.put_data(enum, 1.0)
+    pv.clear_channel()
+
+    pv = setup_pv(pvname)
+    pv.encoding = 'iso-8859-15'
     pv.get_enum_strings(-1.0)
     pyca.flush_io()
     assert pv.getevt_cb.wait(timeout=1)
