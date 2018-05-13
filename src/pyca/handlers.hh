@@ -6,6 +6,11 @@ PyObject* pyca_new_cbtuple(PyObject* arg)
     if (!arg) return PyTuple_New(0);
 
     PyObject* pytup = PyTuple_New(1);
+    if (!pytup) {
+        Py_DECREF(arg);
+        return NULL;
+    }
+
     PyTuple_SET_ITEM(pytup, 0, arg);
     return pytup;
 }
@@ -17,13 +22,18 @@ static void pyca_connection_handler(struct connection_handler_args args)
 {
     capv* pv = reinterpret_cast<capv*>(ca_puser(args.chid));
     long isconn = (args.op == CA_OP_CONN_UP) ? 1 : 0;
+
     PyGILState_STATE gstate = PyGILState_Ensure();
     if (pv->connect_cb && PyCallable_Check(pv->connect_cb)) {
-        PyObject* pyisconn = PyBool_FromLong(isconn);
-        PyObject* pytup = pyca_new_cbtuple(pyisconn);
-        PyObject* res = PyObject_Call(pv->connect_cb, pytup, NULL);
-        Py_XDECREF(res);
-        Py_DECREF(pytup);
+        PyObject* conn = PyBool_FromLong(isconn);
+        if (conn) {
+            PyObject* pytup = pyca_new_cbtuple(conn);
+            if (pytup) {
+                PyObject* res = PyObject_Call(pv->connect_cb, pytup, NULL);
+                Py_XDECREF(res);
+                Py_DECREF(pytup);
+            }
+        }
     }
     PyGILState_Release(gstate);
 }
@@ -32,8 +42,9 @@ static void pyca_connection_handler(struct connection_handler_args args)
 static void pyca_monitor_handler(struct event_handler_args args)
 {
     capv* pv = reinterpret_cast<capv*>(args.usr);
-    PyGILState_STATE gstate = PyGILState_Ensure();
     PyObject* pyexc = NULL;
+
+    PyGILState_STATE gstate = PyGILState_Ensure();
     if (args.status == ECA_NORMAL) {
         if (_pyca_event_process(pv, args.dbr, args.type, args.count) != 0) {
             PyErr_Clear();
@@ -44,9 +55,11 @@ static void pyca_monitor_handler(struct event_handler_args args)
     }
     if (pv->monitor_cb && PyCallable_Check(pv->monitor_cb)) {
         PyObject* pytup = pyca_new_cbtuple(pyexc);
-        PyObject* res = PyObject_Call(pv->monitor_cb, pytup, NULL);
-        Py_XDECREF(res);
-        Py_DECREF(pytup);
+        if (pytup) {
+            PyObject* res = PyObject_Call(pv->monitor_cb, pytup, NULL);
+            Py_XDECREF(res);
+            Py_DECREF(pytup);
+        }
     } else {
         Py_XDECREF(pyexc);
     }
@@ -58,16 +71,23 @@ static void pyca_access_rights_handler(struct access_rights_handler_args args)
     capv* pv = reinterpret_cast<capv*>(ca_puser(args.chid));
     long readable = args.ar.read_access;
     long writeable = args.ar.write_access;
+
     PyGILState_STATE gstate = PyGILState_Ensure();
     if (pv->rwaccess_cb && PyCallable_Check(pv->rwaccess_cb)) {
-        PyObject* pyreadable = PyBool_FromLong(readable);
-        PyObject* pywriteable = PyBool_FromLong(writeable);
-        PyObject* rwtup = PyTuple_New(2);
-        PyTuple_SET_ITEM(rwtup, 0, pyreadable);
-        PyTuple_SET_ITEM(rwtup, 1, pywriteable);
-        PyObject* res = PyObject_Call(pv->rwaccess_cb, rwtup, NULL);
-        Py_XDECREF(res);
-        Py_DECREF(rwtup);
+        PyObject* pytup = PyTuple_New(2);
+        if (pytup) {
+            PyObject* pyreadable = PyBool_FromLong(readable);
+            if (pyreadable) {
+                PyTuple_SET_ITEM(pytup, 0, pyreadable);
+                PyObject* pywriteable = PyBool_FromLong(writeable);
+                if (pywriteable) {
+                    PyTuple_SET_ITEM(pytup, 1, pywriteable);
+                    PyObject* res = PyObject_Call(pv->rwaccess_cb, pytup, NULL);
+                    Py_XDECREF(res);
+                }
+            }
+            Py_DECREF(pytup);
+        }
     }
     PyGILState_Release(gstate);
 }
@@ -76,8 +96,9 @@ static void pyca_access_rights_handler(struct access_rights_handler_args args)
 static void pyca_getevent_handler(struct event_handler_args args)
 {
     capv* pv = reinterpret_cast<capv*>(args.usr);
-    PyGILState_STATE gstate = PyGILState_Ensure();
     PyObject* pyexc = NULL;
+
+    PyGILState_STATE gstate = PyGILState_Ensure();
     if (args.status == ECA_NORMAL) {
         if (_pyca_event_process(pv, args.dbr, args.type, args.count) != 0) {
             PyErr_Clear();
@@ -88,9 +109,11 @@ static void pyca_getevent_handler(struct event_handler_args args)
     }
     if (pv->getevt_cb && PyCallable_Check(pv->getevt_cb)) {
         PyObject* pytup = pyca_new_cbtuple(pyexc);
-        PyObject* res = PyObject_Call(pv->getevt_cb, pytup, NULL);
-        Py_XDECREF(res);
-        Py_DECREF(pytup);
+        if (pytup) {
+            PyObject* res = PyObject_Call(pv->getevt_cb, pytup, NULL);
+            Py_XDECREF(res);
+            Py_DECREF(pytup);
+        }
     } else {
         Py_XDECREF(pyexc);
     }
@@ -101,16 +124,19 @@ static void pyca_getevent_handler(struct event_handler_args args)
 static void pyca_putevent_handler(struct event_handler_args args)
 {
     capv* pv = reinterpret_cast<capv*>(args.usr);
-    PyGILState_STATE gstate = PyGILState_Ensure();
     PyObject* pyexc = NULL;
+
+    PyGILState_STATE gstate = PyGILState_Ensure();
     if (args.status != ECA_NORMAL) {
         pyexc = pyca_data_status_msg(args.status, pv);
     }
     if (pv->putevt_cb && PyCallable_Check(pv->putevt_cb)) {
         PyObject* pytup = pyca_new_cbtuple(pyexc);
-        PyObject* res = PyObject_Call(pv->putevt_cb, pytup, NULL);
-        Py_XDECREF(res);
-        Py_DECREF(pytup);
+        if (pytup) {
+            PyObject* res = PyObject_Call(pv->putevt_cb, pytup, NULL);
+            Py_XDECREF(res);
+            Py_DECREF(pytup);
+        }
     } else {
         Py_XDECREF(pyexc);
     }
