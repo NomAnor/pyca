@@ -135,6 +135,9 @@ extern "C" {
     {
         capv* pv = reinterpret_cast<capv*>(self);
         chid cid = pv->cid;
+        if (!cid) {
+            pyca_raise_pyexc_pv("replace_access_rights_event", "channel is null", pv);
+        }
         int result = ca_replace_access_rights_event(cid, pyca_access_rights_handler);
         if (result != ECA_NORMAL) {
             pyca_raise_caexc_pv("replace_access_rights_event", result, pv);
@@ -715,41 +718,56 @@ extern "C" {
 #endif
         }
 
-        // Export selected channel access constants
-        PyModule_AddIntConstant(module, "DBE_VALUE", DBE_VALUE);
-        PyModule_AddIntConstant(module, "DBE_LOG", DBE_LOG);
-        PyModule_AddIntConstant(module, "DBE_ALARM", DBE_ALARM);
-        PyObject* s = PyTuple_New(ALARM_NSEV);
-        for (unsigned i = 0; i < ALARM_NSEV; i++) {
-            PyModule_AddIntConstant(module, AlarmSeverityStrings[i], i);
-            PyTuple_SET_ITEM(s, i, PyString_FromString(AlarmSeverityStrings[i]));
-        }
-        PyModule_AddObject(module, "severity", s);
-        PyObject* a = PyTuple_New(ALARM_NSTATUS);
-        for (unsigned i = 0; i < ALARM_NSTATUS; i++) {
-            PyModule_AddIntConstant(module, AlarmConditionStrings[i], i);
-            PyTuple_SET_ITEM(a, i, PyString_FromString(AlarmConditionStrings[i]));
-        }
-        PyModule_AddObject(module, "alarm", a);
-        // secs between Jan 1st 1970 and Jan 1st 1990
-        PyModule_AddIntConstant(module, "epoch", 7305 * 86400);
+        PyObject* v = NULL;
 
-        a = PyCapsule_New((void *)pyca_getevent_handler, "pyca.get_handler", NULL);
-        PyModule_AddObject(module, "get_handler", a);
-        a = PyCapsule_New((void *)pyca_monitor_handler, "pyca.monitor_handler", NULL);
-        PyModule_AddObject(module, "monitor_handler", a);
+        // Export selected channel access constants
+        if (PyModule_AddIntConstant(module, "DBE_VALUE", DBE_VALUE) != 0) goto error;
+        if (PyModule_AddIntConstant(module, "DBE_LOG", DBE_LOG) != 0) goto error;
+        if (PyModule_AddIntConstant(module, "DBE_ALARM", DBE_ALARM) != 0) goto error;
+        v = PyTuple_New(ALARM_NSEV);
+        if (!v) goto error;
+        for (unsigned i = 0; i < ALARM_NSEV; i++) {
+            if (PyModule_AddIntConstant(module, AlarmSeverityStrings[i], i) != 0) {
+                Py_DECREF(v);
+                goto error;
+            }
+            PyTuple_SET_ITEM(v, i, PyString_FromString(AlarmSeverityStrings[i]));
+        }
+        if (PyModule_AddObject(module, "severity", v) != 0) goto error;
+        v = PyTuple_New(ALARM_NSTATUS);
+        if (!v) goto error;
+        for (unsigned i = 0; i < ALARM_NSTATUS; i++) {
+            if (PyModule_AddIntConstant(module, AlarmConditionStrings[i], i) != 0) {
+                Py_DECREF(v);
+                goto error;
+            }
+            PyTuple_SET_ITEM(v, i, PyString_FromString(AlarmConditionStrings[i]));
+        }
+        if (PyModule_AddObject(module, "alarm", v) != 0) goto error;
+        // secs between Jan 1st 1970 and Jan 1st 1990
+        if (PyModule_AddIntConstant(module, "epoch", 7305 * 86400) != 0) goto error;
+
+        v = PyCapsule_New((void *)pyca_getevent_handler, "pyca.get_handler", NULL);
+        if (!v) goto error;
+        if (PyModule_AddObject(module, "get_handler", v) != 0) goto error;
+        v = PyCapsule_New((void *)pyca_monitor_handler, "pyca.monitor_handler", NULL);
+        if (!v) goto error;
+        if (PyModule_AddObject(module, "monitor_handler", v) != 0) goto error;
 
         // Add capv type to this module
         Py_INCREF(&capv_type);
-        PyModule_AddObject(module, "capv", (PyObject*)&capv_type);
+        if (PyModule_AddObject(module, "capv", (PyObject*)&capv_type) != 0) goto error;
 
         // Add custom exceptions to this module
         pyca_pyexc = PyErr_NewException("pyca.pyexc", NULL, NULL);
-        Py_INCREF(pyca_pyexc);
-        PyModule_AddObject(module, "pyexc", pyca_pyexc);
+        if (!pyca_pyexc) goto error;
+        if (PyModule_AddObject(module, "pyexc", pyca_pyexc) != 0) goto error;
         pyca_caexc = PyErr_NewException("pyca.caexc", NULL, NULL);
+        if (!pyca_caexc) goto error;
+        if (PyModule_AddObject(module, "caexc", pyca_caexc) != 0) goto error;
+        // incref for the references held by our c code
+        Py_INCREF(pyca_pyexc);
         Py_INCREF(pyca_caexc);
-        PyModule_AddObject(module, "caexc", pyca_caexc);
 
         // libca creates non-python threads so we must ensure that python threading is initialized
         PyEval_InitThreads();
@@ -759,6 +777,7 @@ extern "C" {
                 fprintf(stderr,
                         "*** initpyca: ca_context_create failed with status %d\n",
                         result);
+                goto error;
             }
             save_proc_context();
             // The following seems to cause a segfault at exit
@@ -766,6 +785,14 @@ extern "C" {
         }
 #ifdef IS_PY3K
         return module;
+#endif
+
+error:
+#ifdef IS_PY3K
+        Py_DECREF(module);
+        return NULL;
+#else
+        return;
 #endif
     }
 }
