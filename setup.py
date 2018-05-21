@@ -62,6 +62,7 @@ setup(
     install_requires=['numpy'],
     setup_requires=['numpy'],
     extras_require={
+        'doc': [ 'sphinx' ],
         'test': [ 'pytest', 'pytest-timeout', 'pcaspy' ]
     },
     ext_modules = [pyca],

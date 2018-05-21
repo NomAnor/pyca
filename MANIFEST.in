@@ -7,6 +7,5 @@ include pyca/*.h
 include versioneer.py
 include psp/_version.py
 
-include doc/Makefile
-include doc/source/conf.py
-include doc/source/*.rst
+include doc/conf.py
+include doc/*.rst
