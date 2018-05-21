@@ -1,4 +1,4 @@
-from setuptools import setup, Extension
+from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext as _build_ext
 import versioneer
 import os, sys
@@ -37,8 +37,8 @@ epics_lib = os.environ["EPICS_BASE"] + "/lib/" + os.getenv("EPICS_HOST_ARCH")
 pyca = Extension(
     'pyca',
     language='c++',
-    sources=['pyca/pyca.cc'],
-    include_dirs=['pyca', epics_inc,
+    sources=['src/pyca/pyca.cc'],
+    include_dirs=['src/pyca', epics_inc,
         epics_inc + '/os/' + libsrc,
         epics_inc + '/compiler/' + compiler,
     ],
@@ -58,7 +58,8 @@ setup(
     description='Python Channel Access library',
     license='SLAC Open Licence',
     url='https://github.com/slaclab/pyca',
-    packages=['psp'],
+    packages=find_packages('src'),
+    package_dir={ '': 'src' },
     install_requires=['numpy'],
     setup_requires=['pytest-runner', 'numpy'],
     extras_require={

@@ -22,7 +22,7 @@ import sphinx_rtd_theme
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #sys.path.insert(0, os.path.abspath('.'))
 
-module_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'..')
+module_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'../src')
 sys.path.insert(0,module_path)
 sys.path.insert(0,os.path.join(module_path,'psnet'))
 

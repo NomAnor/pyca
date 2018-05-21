@@ -2,10 +2,10 @@ include README.md
 include LICENSE.md
 include pyca.txt
 
-include pyca/*.hh
-include pyca/*.h
+include src/pyca/*.hh
+include src/pyca/*.h
 include versioneer.py
-include psp/_version.py
+include src/psp/_version.py
 
 include doc/conf.py
 include doc/*.rst
