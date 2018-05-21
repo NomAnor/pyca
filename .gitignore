@@ -5,6 +5,7 @@ dist/
 .pytest_cache/
 pyca.egg-info
 .eggs/
+.tox/
 
 *.cache
 *.pyc

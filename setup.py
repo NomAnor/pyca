@@ -60,9 +60,9 @@ setup(
     url='https://github.com/slaclab/pyca',
     packages=['psp'],
     install_requires=['numpy'],
-    setup_requires=['numpy'],
+    setup_requires=['pytest-runner', 'numpy'],
     extras_require={
-        'doc': [ 'sphinx' ],
+        'doc': [ 'sphinx', 'sphinx_rtd_theme' ],
         'test': [ 'pytest', 'pytest-timeout', 'pcaspy' ]
     },
     ext_modules = [pyca],
