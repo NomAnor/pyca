@@ -309,8 +309,8 @@ extern "C" {
             pyca_raise_caexc_pv("ca_field_type", ECA_DISCONNCHID, pv);
         }
         if (count > 1) {
-            if (PyTuple_Check(pyval)) {
-                int tcnt = PyTuple_GET_SIZE(pyval);
+            if (PyList_Check(pyval)) {
+                int tcnt = PyList_GET_SIZE(pyval);
                 if (tcnt < count) {
                     count = tcnt;
                 }

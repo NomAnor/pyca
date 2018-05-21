@@ -77,7 +77,7 @@ def test_misc(any_pv):
 def test_waveform_tuple(waveform_pv):
     waveform_pv.use_numpy = False
     value = waveform_pv.get()
-    assert isinstance(value, tuple)
+    assert isinstance(value, list)
     assert len(value) == waveform_pv.count
 
 @pytest.mark.timeout(10)

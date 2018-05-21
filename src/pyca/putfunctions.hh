@@ -62,8 +62,8 @@ void _pyca_put_value(capv* pv, PyObject* pyvalue, T** buf, long count)
     }
     T* buffer = reinterpret_cast<T*>(pv->putbuffer);
     if (count == 1) {
-        if (PyTuple_Check(pyvalue)) {
-            PyObject* pyval = PyTuple_GetItem(pyvalue, 0);
+        if (PyList_Check(pyvalue)) {
+            PyObject* pyval = PyList_GetItem(pyvalue, 0);
             _pyca_put(pyval, buffer);
         } else if (PyArray_Check(pyvalue)) {
             void* npdata = PyArray_GETPTR1(pyvalue, 0);
@@ -77,9 +77,9 @@ void _pyca_put_value(capv* pv, PyObject* pyvalue, T** buf, long count)
             _pyca_put(pyvalue, buffer);
         }
     } else {
-        if (PyTuple_Check(pyvalue)) {
+        if (PyList_Check(pyvalue)) {
             for (long i = 0; i < count; i++) {
-                PyObject* pyval = PyTuple_GetItem(pyvalue, i);
+                PyObject* pyval = PyList_GetItem(pyvalue, i);
                 _pyca_put(pyval, buffer+i);
             }
         } else if (PyArray_Check(pyvalue)) {

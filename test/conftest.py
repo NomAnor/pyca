@@ -60,8 +60,8 @@ def calc_new_value(name, old_value):
         new_value = old_value + 1
     elif isinstance(old_value, str):
         new_value = old_value + 'x'
-    elif isinstance(old_value, tuple):
-        new_value = tuple([old_value[0] + 1] * len(old_value))
+    elif isinstance(old_value, list):
+        new_value = [old_value[0] + 1] * len(old_value)
     return new_value
 
 

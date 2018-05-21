@@ -169,7 +169,7 @@ def test_waveform_tuple(waveform_pv):
     pyca.flush_io()
     assert waveform_pv.getevt_cb.wait(timeout=1)
     val = waveform_pv.data['value']
-    assert isinstance(val, tuple)
+    assert isinstance(val, list)
     assert len(val) == waveform_pv.count()
 
 @pytest.mark.timeout(10)

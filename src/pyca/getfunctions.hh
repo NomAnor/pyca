@@ -120,12 +120,12 @@ PyObject* _pyca_get_value(capv* pv, const T* dbrv, long count)
                 memcpy(PyArray_DATA(nparray), &(dbrv->value), count*sizeof(dbrv->value));
                 return nparray;
             } else {
-                PyObject* pytup = PyTuple_New(count);
+                PyObject* pylist = PyList_New(count);
                 for (long i = 0; i < count; i++) {
                     // Following function steals reference, no DECREF needed for each item
-                    PyTuple_SetItem(pytup, i, _pyca_get(*(&(dbrv->value)+i)));
+                    PyList_SET_ITEM(pylist, i, _pyca_get(*(&(dbrv->value)+i)));
                 }
-                return pytup;
+                return pylist;
             }
         } else {
             const char* name = PyCapsule_GetName(pv->processor);
