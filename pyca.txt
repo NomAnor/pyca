@@ -253,7 +253,7 @@ pyca.capv member variables:
       this PV.  The dictionary items are as follows:
 
       data['status']
-         The alarm status of the PV.  
+         The alarm status of the PV.
 
       data['severity']
          The severity of the PV's current alarm.
@@ -280,8 +280,11 @@ pyca.capv member variables:
       data['ctrl_hlim']
          Alarm limit boundaries.
 
-      no_str
-         ???
+      data['enum_set']
+         Tuple of the enum strings.
+
+      data['no_str']
+         Length of the enum_set tuple.
 
 pyca.capv status memthods:
 
@@ -402,6 +405,7 @@ the request to be delivered to an IOC.
     alarm_hlim
     ctrl_llim
     ctrl_hlim
+    enum_set
     no_str
 
     These become member variables of the pyca.capv instance.  See
